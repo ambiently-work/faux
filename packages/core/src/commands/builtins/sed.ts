@@ -394,7 +394,7 @@ export const sed = command("sed")
 			}
 
 			if (output.length === 0) return "";
-			return output.join("\n") + "\n";
+			return output.join("\n") + (hasTrailing ? "\n" : "");
 		};
 
 		if (files.length === 0) {

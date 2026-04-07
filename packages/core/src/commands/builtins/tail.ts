@@ -50,7 +50,8 @@ export const tail = command("tail")
 				}
 				const output = lines.slice(-n);
 				if (output.length > 0) {
-					ctx.stdout.write(output.join("\n") + "\n");
+					const suffix = hasTrailing || output.length < lines.length ? "\n" : "";
+					ctx.stdout.write(output.join("\n") + suffix);
 				}
 			}
 		};
