@@ -33,7 +33,9 @@ export const mv = command("mv")
 		for (const src of sources) {
 			const resolvedSrc = ctx.resolve(src);
 			try {
-				ctx.fs.mv(resolvedSrc, dest);
+				const basename = resolvedSrc.split("/").pop() ?? "";
+				const finalDest = destIsDir ? dest + "/" + basename : dest;
+				ctx.fs.mv(resolvedSrc, finalDest);
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err);
 				if (msg.includes("ENOENT")) {

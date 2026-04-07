@@ -43,9 +43,10 @@ export const cp = command("cp")
 					continue;
 				}
 
+				const basename = resolvedSrc.split("/").pop() ?? "";
+				const finalDest = destIsDir ? dest + "/" + basename : dest;
+
 				if (force) {
-					// Remove dest if it exists (for overwrite)
-					const finalDest = destIsDir ? dest + "/" + src.split("/").pop() : dest;
 					try {
 						ctx.fs.rm(finalDest, { force: true });
 					} catch {
@@ -53,7 +54,7 @@ export const cp = command("cp")
 					}
 				}
 
-				ctx.fs.cp(resolvedSrc, dest, { recursive });
+				ctx.fs.cp(resolvedSrc, finalDest, { recursive });
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err);
 				if (msg.includes("ENOENT")) {
