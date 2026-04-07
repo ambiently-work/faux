@@ -78,10 +78,16 @@ function expandClass(name: string): string {
 			return " \t\n\r\x0b\x0c";
 		case "blank":
 			return " \t";
-		case "print":
-		case "graph": {
+		case "print": {
 			let s = "";
 			for (let c = 32; c < 127; c++) {
+				s += String.fromCharCode(c);
+			}
+			return s;
+		}
+		case "graph": {
+			let s = "";
+			for (let c = 33; c < 127; c++) {
 				s += String.fromCharCode(c);
 			}
 			return s;
