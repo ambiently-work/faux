@@ -299,7 +299,7 @@ function evaluateExpr(
 		case "type": {
 			const fileType = (expr as TypeExpr).fileType;
 			try {
-				const stat = ctx.fs.stat(fullPath);
+				const stat = fileType === "l" ? ctx.fs.lstat(fullPath) : ctx.fs.stat(fullPath);
 				switch (fileType) {
 					case "f":
 						return stat.isFile();

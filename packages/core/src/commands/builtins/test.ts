@@ -186,7 +186,7 @@ function evalUnary(op: string, operand: string, ctx: TestCtx): boolean | undefin
 		case "-L":
 		case "-h": {
 			try {
-				const s = ctx.fs.stat(ctx.resolve(operand));
+				const s = ctx.fs.lstat(ctx.resolve(operand));
 				return s.isSymlink();
 			} catch {
 				return false;
