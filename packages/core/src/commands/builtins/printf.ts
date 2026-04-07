@@ -242,11 +242,16 @@ function formatValue(spec: FormatSpec, arg: string): string {
 	}
 
 	if (spec.width > 0 && result.length < spec.width) {
-		const pad = spec.flags.includes("0") && !spec.flags.includes("-") ? "0" : " ";
 		if (spec.flags.includes("-")) {
 			result = result.padEnd(spec.width, " ");
+		} else if (spec.flags.includes("0")) {
+			// Zero-pad after the sign/prefix so -42 becomes -0042, not 00-42
+			const prefixMatch = result.match(/^([+-\s]|0[xX])?/);
+			const prefix = prefixMatch?.[0] ?? "";
+			const body = result.slice(prefix.length);
+			result = prefix + body.padStart(spec.width - prefix.length, "0");
 		} else {
-			result = result.padStart(spec.width, pad);
+			result = result.padStart(spec.width, " ");
 		}
 	}
 
