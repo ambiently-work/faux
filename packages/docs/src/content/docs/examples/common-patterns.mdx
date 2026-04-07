@@ -1,0 +1,400 @@
+---
+title: "Common Patterns"
+description: "Practical recipes for CSV processing, file trees, text pipelines, scripting, config manipulation, and log analysis."
+---
+
+These examples show real-world patterns you can use with faux-shell. Every snippet is a complete, runnable example.
+
+---
+
+## 1. Process CSV Data
+
+Extract, filter, and sort data from CSV files using pipes.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: {
+    "/data/employees.csv": [
+      "name,department,salary",
+      "alice,engineering,120000",
+      "bob,marketing,85000",
+      "carol,engineering,135000",
+      "dave,marketing,90000",
+      "eve,engineering,110000",
+      "frank,sales,95000",
+      "grace,engineering,140000",
+      "hank,sales,88000",
+    ].join("\n") + "\n",
+  },
+});
+
+// Find all engineers, extract names and salaries, sort by salary descending
+const result = await shell.run(
+  'cat /data/employees.csv | grep ",engineering," | cut -d, -f1,3 | sort -t, -k2 -n -r'
+);
+console.log(result.stdout);
+// grace,140000
+// carol,135000
+// alice,120000
+// eve,110000
+
+// Count employees per department
+const counts = await shell.run(
+  'tail -n +2 /data/employees.csv | cut -d, -f2 | sort | uniq -c | sort -rn'
+);
+console.log(counts.stdout);
+//       4 engineering
+//       2 marketing
+//       2 sales
+
+// Calculate total headcount
+const total = await shell.run(
+  'tail -n +2 /data/employees.csv | wc -l'
+);
+console.log(total.stdout.trim()); // "8"
+```
+
+---
+
+## 2. Build a File Tree and Search It
+
+Create a project structure programmatically, then search it with `find` and `grep`.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell();
+
+// Build a project structure
+await shell.run("mkdir -p /project/src/components");
+await shell.run("mkdir -p /project/src/utils");
+await shell.run("mkdir -p /project/tests");
+await shell.run("mkdir -p /project/docs");
+
+await shell.run('echo "export function add(a, b) { return a + b; }" > /project/src/utils/math.ts');
+await shell.run('echo "export function format(s) { return s.trim(); }" > /project/src/utils/string.ts');
+await shell.run('echo "import { add } from \'../utils/math\';\nexport function Calculator() { return add(1, 2); }" > /project/src/components/Calculator.tsx');
+await shell.run('echo "import { add } from \'./src/utils/math\';\nconsole.assert(add(2, 3) === 5);" > /project/tests/math.test.ts');
+await shell.run('echo "# My Project\nA sample project." > /project/docs/README.md');
+
+// Find all TypeScript files
+const tsFiles = await shell.run("find /project -name '*.ts' -o -name '*.tsx'");
+console.log(tsFiles.stdout);
+// /project/src/components/Calculator.tsx
+// /project/src/utils/math.ts
+// /project/src/utils/string.ts
+// /project/tests/math.test.ts
+
+// Grep for import statements across all source files
+const imports = await shell.run("grep -r 'import' /project/src /project/tests");
+console.log(imports.stdout);
+
+// Find all files in src/ that contain "export"
+const exports = await shell.run("find /project/src -type f -name '*.ts' | xargs grep -l 'export'");
+console.log(exports.stdout);
+
+// Display the tree
+const tree = await shell.run("tree /project");
+console.log(tree.stdout);
+```
+
+---
+
+## 3. Text Transformation Pipeline
+
+Chain text processing commands for complex transformations.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: {
+    "/data/raw.txt": [
+      "  Hello World  ",
+      "  FAUX shell is GREAT  ",
+      "  hello world  ",
+      "  Testing 123  ",
+      "  hello WORLD  ",
+    ].join("\n") + "\n",
+  },
+});
+
+// Normalize whitespace, lowercase, deduplicate, and sort
+const result = await shell.run(
+  'cat /data/raw.txt | sed "s/^[[:space:]]*//;s/[[:space:]]*$//" | tr "A-Z" "a-z" | sort | uniq'
+);
+console.log(result.stdout);
+// faux shell is great
+// hello world
+// testing 123
+
+// Replace words with sed, then format as a numbered list
+const list = await shell.run(
+  'cat /data/raw.txt | sed "s/^[[:space:]]*//" | sed "s/[[:space:]]*$//" | sed "/^$/d" | nl -b a'
+);
+console.log(list.stdout);
+
+// Extract unique words, one per line, sorted
+const words = await shell.run(
+  'cat /data/raw.txt | tr "A-Z" "a-z" | tr -s " " "\\n" | sed "/^$/d" | sort | uniq'
+);
+console.log(words.stdout);
+
+// Use awk to produce word frequency counts
+const freq = await shell.run(
+  'cat /data/raw.txt | tr "A-Z" "a-z" | awk \'{ for(i=1;i<=NF;i++) count[$i]++ } END { for(w in count) print count[w], w }\' | sort -rn'
+);
+console.log(freq.stdout);
+```
+
+---
+
+## 4. Script Execution
+
+Use shell scripting features: loops, conditionals, and functions.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell();
+
+// For loop with sequence generation
+const loop = await shell.run(`
+  for i in $(seq 1 5); do
+    echo "Item $i"
+  done
+`);
+console.log(loop.stdout);
+// Item 1
+// Item 2
+// Item 3
+// Item 4
+// Item 5
+
+// If/elif/else conditionals
+await shell.run('export STATUS="warning"');
+const cond = await shell.run(`
+  if [ "$STATUS" = "error" ]; then
+    echo "CRITICAL: system error"
+  elif [ "$STATUS" = "warning" ]; then
+    echo "WARN: check system"
+  else
+    echo "OK: all clear"
+  fi
+`);
+console.log(cond.stdout); // "WARN: check system\n"
+
+// Define and call functions
+await shell.run(`
+  greet() {
+    local name="$1"
+    local greeting="\${2:-Hello}"
+    echo "$greeting, $name!"
+  }
+`);
+
+const hi = await shell.run('greet "Alice" "Hi"');
+console.log(hi.stdout); // "Hi, Alice!\n"
+
+const hello = await shell.run('greet "Bob"');
+console.log(hello.stdout); // "Hello, Bob!\n"
+
+// Case statement
+await shell.run('export EXT="json"');
+const mime = await shell.run(`
+  case "$EXT" in
+    json) echo "application/json";;
+    html) echo "text/html";;
+    css)  echo "text/css";;
+    js)   echo "application/javascript";;
+    *)    echo "application/octet-stream";;
+  esac
+`);
+console.log(mime.stdout); // "application/json\n"
+
+// While loop with counter
+const countdown = await shell.run(`
+  n=5
+  while [ $n -gt 0 ]; do
+    echo $n
+    n=$((n - 1))
+  done
+  echo "Go!"
+`);
+console.log(countdown.stdout);
+// 5
+// 4
+// 3
+// 2
+// 1
+// Go!
+```
+
+---
+
+## 5. Config File Manipulation
+
+Read, modify, and validate configuration files.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: {
+    "/etc/app.conf": [
+      "# Application config",
+      "PORT=3000",
+      "HOST=localhost",
+      "DEBUG=false",
+      "LOG_LEVEL=info",
+      "DB_HOST=localhost",
+      "DB_PORT=5432",
+      "DB_NAME=myapp",
+    ].join("\n") + "\n",
+  },
+});
+
+// Read a specific config value
+const port = await shell.run(
+  'grep "^PORT=" /etc/app.conf | cut -d= -f2'
+);
+console.log(port.stdout.trim()); // "3000"
+
+// Update a config value with sed
+await shell.run('sed -i "s/^DEBUG=.*/DEBUG=true/" /etc/app.conf');
+
+// Verify the change
+const debug = await shell.run('grep "^DEBUG=" /etc/app.conf');
+console.log(debug.stdout.trim()); // "DEBUG=true"
+
+// Add a new config entry if it doesn't exist
+const check = await shell.run('grep -q "^API_KEY=" /etc/app.conf');
+if (check.exitCode !== 0) {
+  await shell.run('echo "API_KEY=secret123" >> /etc/app.conf');
+}
+
+// List all non-comment config keys
+const keys = await shell.run(
+  'grep -v "^#" /etc/app.conf | grep -v "^$" | cut -d= -f1 | sort'
+);
+console.log(keys.stdout);
+// API_KEY
+// DB_HOST
+// DB_NAME
+// DB_PORT
+// DEBUG
+// HOST
+// LOG_LEVEL
+// PORT
+
+// Extract all DB-related settings
+const dbConf = await shell.run(
+  'grep "^DB_" /etc/app.conf'
+);
+console.log(dbConf.stdout);
+// DB_HOST=localhost
+// DB_PORT=5432
+// DB_NAME=myapp
+
+// Create an env file from config
+await shell.run(
+  'grep -v "^#" /etc/app.conf | grep -v "^$" | sed "s/^/export /" > /etc/app.env'
+);
+const envFile = await shell.run("cat /etc/app.env");
+console.log(envFile.stdout);
+```
+
+---
+
+## 6. Log Analysis
+
+Parse and analyze structured log data.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: {
+    "/var/log/access.log": [
+      '2025-01-15 10:00:01 GET /api/users 200 45ms',
+      '2025-01-15 10:00:02 POST /api/users 201 120ms',
+      '2025-01-15 10:00:03 GET /api/users/1 200 30ms',
+      '2025-01-15 10:00:04 GET /api/products 500 200ms',
+      '2025-01-15 10:00:05 GET /api/users 200 42ms',
+      '2025-01-15 10:00:06 DELETE /api/users/2 403 15ms',
+      '2025-01-15 10:00:07 GET /api/products 500 180ms',
+      '2025-01-15 10:00:08 POST /api/orders 201 95ms',
+      '2025-01-15 10:00:09 GET /api/users 200 38ms',
+      '2025-01-15 10:00:10 GET /api/products 200 55ms',
+      '2025-01-15 10:00:11 GET /api/orders/1 404 10ms',
+      '2025-01-15 10:00:12 PUT /api/users/1 200 65ms',
+      '2025-01-15 10:00:13 GET /api/products 500 190ms',
+      '2025-01-15 10:00:14 GET /api/users 200 40ms',
+      '2025-01-15 10:00:15 POST /api/auth/login 200 250ms',
+    ].join("\n") + "\n",
+  },
+});
+
+// Count requests by HTTP status code
+const statusCounts = await shell.run(
+  'awk \'{ print $5 }\' /var/log/access.log | sort | uniq -c | sort -rn'
+);
+console.log("Status code distribution:");
+console.log(statusCounts.stdout);
+//       8 200
+//       3 500
+//       2 201
+//       1 403
+//       1 404
+
+// Find all error responses (5xx)
+const errors = await shell.run(
+  'grep " 5[0-9][0-9] " /var/log/access.log'
+);
+console.log("Server errors:");
+console.log(errors.stdout);
+
+// Top endpoints by request count
+const topEndpoints = await shell.run(
+  'awk \'{ print $4 }\' /var/log/access.log | sort | uniq -c | sort -rn | head -5'
+);
+console.log("Top endpoints:");
+console.log(topEndpoints.stdout);
+
+// Count requests by HTTP method
+const methods = await shell.run(
+  'awk \'{ print $3 }\' /var/log/access.log | sort | uniq -c | sort -rn'
+);
+console.log("Request methods:");
+console.log(methods.stdout);
+
+// Find slow requests (response time > 100ms)
+const slow = await shell.run(
+  'awk \'{ gsub("ms", "", $6); if ($6 > 100) print }\' /var/log/access.log'
+);
+console.log("Slow requests (>100ms):");
+console.log(slow.stdout);
+
+// Extract unique endpoints that returned errors
+const errorEndpoints = await shell.run(
+  'grep " [45][0-9][0-9] " /var/log/access.log | awk \'{ print $4 }\' | sort | uniq'
+);
+console.log("Endpoints with errors:");
+console.log(errorEndpoints.stdout);
+
+// Generate a summary report
+await shell.run(`
+  echo "=== Access Log Report ===" > /tmp/report.txt
+  echo "" >> /tmp/report.txt
+  echo "Total requests: $(wc -l < /var/log/access.log)" >> /tmp/report.txt
+  echo "Error count: $(grep -c ' [45][0-9][0-9] ' /var/log/access.log)" >> /tmp/report.txt
+  echo "" >> /tmp/report.txt
+  echo "Status codes:" >> /tmp/report.txt
+  awk '{ print $5 }' /var/log/access.log | sort | uniq -c | sort -rn >> /tmp/report.txt
+`);
+
+const report = await shell.run("cat /tmp/report.txt");
+console.log(report.stdout);
+```

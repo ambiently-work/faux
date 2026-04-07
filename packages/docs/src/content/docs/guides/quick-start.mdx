@@ -1,0 +1,244 @@
+---
+title: Quick Start
+description: Create a virtual shell and start running commands in under 5 minutes.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide walks you through the basics of faux-shell: creating a shell instance, running commands, working with the virtual filesystem, using variables and control flow, and registering custom commands.
+
+## 1. Install
+
+<Tabs>
+  <TabItem label="bun">
+    ```bash
+    bun add faux-shell
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install faux-shell
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add faux-shell
+    ```
+  </TabItem>
+</Tabs>
+
+## 2. Create a shell instance
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  env: {
+    APP_NAME: "my-app",
+    DEBUG: "true",
+  },
+  fs: {
+    "/etc/config.json": '{"port": 3000, "host": "localhost"}',
+    "/data/names.txt": "alice\nbob\ncharlie\ndiana\n",
+  },
+  cwd: "/data",
+});
+```
+
+The `Shell` constructor accepts an options object:
+
+- **`env`** — Initial environment variables. These are merged with sensible defaults (`HOME`, `PATH`, `PWD`, `USER`, etc.).
+- **`fs`** — Initial filesystem contents. Keys are absolute file paths, values are file contents as strings. Directories are created automatically.
+- **`cwd`** — Starting working directory (defaults to `"/"`).
+
+## 3. Run commands
+
+Every call to `shell.run()` returns a `ShellResult` with three fields: `stdout`, `stderr`, and `exitCode`.
+
+```typescript
+const result = await shell.run("echo Hello from $APP_NAME");
+console.log(result.stdout);   // "Hello from my-app\n"
+console.log(result.exitCode); // 0
+```
+
+### Pipes
+
+Commands can be piped together just like in bash. The stdout of each command flows into the stdin of the next:
+
+```typescript
+const result = await shell.run("cat /data/names.txt | sort | head -2");
+console.log(result.stdout);
+// "alice\nbob\n"
+```
+
+### Grep and text processing
+
+```typescript
+const result = await shell.run('cat /data/names.txt | grep -i "^[a-c]"');
+console.log(result.stdout);
+// "alice\nbob\ncharlie\n"
+```
+
+### Error handling
+
+When a command fails, `exitCode` will be non-zero and the error message appears in `stderr`:
+
+```typescript
+const result = await shell.run("cat /nonexistent");
+console.log(result.exitCode); // 1
+console.log(result.stderr);   // "cat: /nonexistent: No such file or directory\n"
+```
+
+## 4. Work with the virtual filesystem
+
+State persists across `shell.run()` calls. Files, directories, and variables created in one command are available in the next.
+
+```typescript
+// Create directories and files
+await shell.run("mkdir -p /app/src /app/tests");
+await shell.run('echo "console.log(42)" > /app/src/index.js');
+await shell.run('echo "assert(true)" > /app/tests/main.test.js');
+
+// List what we created
+const tree = await shell.run("find /app -type f");
+console.log(tree.stdout);
+// "/app/src/index.js\n/app/tests/main.test.js\n"
+
+// Use redirects to append
+await shell.run('echo "console.log(99)" >> /app/src/index.js');
+
+const content = await shell.run("cat /app/src/index.js");
+console.log(content.stdout);
+// "console.log(42)\nconsole.log(99)\n"
+```
+
+:::tip
+You can also access the filesystem directly through `shell.filesystem` for programmatic reads and writes outside of shell commands:
+```typescript
+shell.filesystem.writeFile("/data/output.txt", "written from JS");
+const content = shell.filesystem.readFile("/data/output.txt");
+```
+:::
+
+### Snapshot the filesystem
+
+To get a plain object of all files and their contents:
+
+```typescript
+const files = shell.snapshot();
+// { "/app/src/index.js": "console.log(42)\nconsole.log(99)\n", ... }
+```
+
+This is useful for inspecting state in tests or serializing the filesystem.
+
+## 5. Variables and control flow
+
+faux-shell supports shell variables, arithmetic, and control flow constructs.
+
+### Variables
+
+```typescript
+await shell.run('NAME="world"');
+const result = await shell.run('echo "Hello, $NAME!"');
+console.log(result.stdout); // "Hello, world!\n"
+```
+
+### Arithmetic
+
+```typescript
+const result = await shell.run("echo $((6 * 7))");
+console.log(result.stdout); // "42\n"
+```
+
+### Conditionals
+
+```typescript
+const result = await shell.run(`
+  if [ -f /data/names.txt ]; then
+    echo "file exists"
+  else
+    echo "file not found"
+  fi
+`);
+console.log(result.stdout); // "file exists\n"
+```
+
+### Loops
+
+```typescript
+const result = await shell.run(`
+  for name in alice bob charlie; do
+    echo "Hello, $name"
+  done
+`);
+console.log(result.stdout);
+// "Hello, alice\nHello, bob\nHello, charlie\n"
+```
+
+### Command substitution
+
+```typescript
+const result = await shell.run('echo "There are $(wc -l < /data/names.txt | tr -d " ") names"');
+console.log(result.stdout); // "There are 4 names\n"
+```
+
+## 6. Register a custom command
+
+You can add your own commands alongside the 111 built-ins. A command handler has a `name` and an `execute` function that receives a `CommandContext`:
+
+```typescript
+import { Shell, type CommandHandler } from "faux-shell";
+
+const fetchUrl: CommandHandler = {
+  name: "fetch-url",
+  execute(ctx) {
+    const url = ctx.args[0];
+    if (!url) {
+      ctx.stderr.write("fetch-url: missing URL argument\n");
+      return 1;
+    }
+    // Simulate an HTTP response (or do a real fetch if your runtime supports it)
+    ctx.stdout.write(`200 OK — ${url}\n`);
+    return 0;
+  },
+};
+
+const shell = new Shell({
+  commands: [fetchUrl],
+});
+
+const result = await shell.run("fetch-url https://example.com");
+console.log(result.stdout); // "200 OK — https://example.com\n"
+```
+
+Custom commands work with pipes, redirects, and all other shell features:
+
+```typescript
+const result = await shell.run("fetch-url https://example.com | grep OK");
+console.log(result.stdout); // "200 OK — https://example.com\n"
+```
+
+You can also register commands after construction:
+
+```typescript
+shell.register({
+  name: "now",
+  execute(ctx) {
+    ctx.stdout.write(new Date().toISOString() + "\n");
+    return 0;
+  },
+});
+```
+
+:::note
+Custom commands have full access to the virtual filesystem and environment through `ctx.fs` and `ctx.env`. They can read and write files, get and set variables, and resolve paths — just like built-in commands.
+:::
+
+## Next steps
+
+You now know the essentials. From here you can explore:
+
+- [Shell Features](/guides/shell-features/) — deep dive into pipes, redirects, subshells, and more
+- [Virtual Filesystem](/guides/virtual-filesystem/) — permissions, symlinks, mounts, and globs
+- [Custom Commands](/guides/custom-commands/) — advanced patterns for building command plugins
+- [Common Patterns](/examples/common-patterns/) — real-world usage examples

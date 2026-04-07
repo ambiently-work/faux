@@ -1,0 +1,81 @@
+---
+title: faux-shell
+description: A virtual bash shell that runs on any JavaScript runtime. 111 commands, in-memory VFS, zero dependencies.
+template: splash
+hero:
+  tagline: A virtual bash shell that runs on any JavaScript runtime — Cloudflare Workers, Deno, Bun, browsers. 111 built-in commands, full shell parser, in-memory virtual filesystem. Zero dependencies.
+  actions:
+    - text: Get Started
+      link: /guides/introduction/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/lucasilverentand/faux-shell
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Code } from '@astrojs/starlight/components';
+
+## Why faux-shell?
+
+<CardGrid stagger>
+  <Card title="Runs everywhere" icon="rocket">
+    Works on Cloudflare Workers, Deno, Bun, Node.js, and browsers. No native bindings, no filesystem access needed — pure JavaScript.
+  </Card>
+  <Card title="111 bash commands" icon="list-format">
+    From `cat` and `grep` to `awk`, `sed`, `find`, and `xargs` — all implemented in JavaScript with faithful bash semantics.
+  </Card>
+  <Card title="Full shell parser" icon="puzzle">
+    Pipes, redirects, variables, subshells, control flow (`if`/`for`/`while`/`case`), functions, brace expansion, glob matching, and arithmetic.
+  </Card>
+  <Card title="In-memory virtual filesystem" icon="document">
+    Complete VFS with permissions, symlinks, glob matching, and directory traversal. Seed it with files at startup or build up state across commands.
+  </Card>
+  <Card title="Zero dependencies" icon="approve-check">
+    ~50KB gzipped. No transitive dependencies to audit. Ships as ESM with full TypeScript types.
+  </Card>
+  <Card title="Plugin architecture" icon="setting">
+    Register custom commands with a simple handler interface. Add domain-specific tools alongside the built-in commands.
+  </Card>
+</CardGrid>
+
+## Quick example
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: { "/data/users.csv": "name,age\nalice,30\nbob,25\n" },
+});
+
+const result = await shell.run('cat /data/users.csv | grep alice | cut -d, -f2');
+console.log(result.stdout); // "30\n"
+```
+
+Every call to `shell.run()` returns a `ShellResult` with `stdout`, `stderr`, and `exitCode` — just like a real shell. State persists across calls: files you create, variables you set, and directories you make all carry forward.
+
+```typescript
+await shell.run('mkdir -p /app/logs');
+await shell.run('echo "server started" > /app/logs/boot.log');
+await shell.run('export APP_ENV=production');
+
+const log = await shell.run('cat /app/logs/boot.log');
+console.log(log.stdout); // "server started\n"
+
+const env = await shell.run('echo $APP_ENV');
+console.log(env.stdout); // "production\n"
+```
+
+## Ready to get started?
+
+<CardGrid>
+  <Card title="Introduction" icon="open-book">
+    Learn what faux-shell is and where it fits.
+    [Read the introduction &rarr;](/guides/introduction/)
+  </Card>
+  <Card title="Quick Start" icon="rocket">
+    Install faux-shell and run your first commands in under 5 minutes.
+    [Jump to quick start &rarr;](/guides/quick-start/)
+  </Card>
+</CardGrid>

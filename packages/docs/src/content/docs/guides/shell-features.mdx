@@ -1,0 +1,431 @@
+---
+title: "Shell Features"
+description: "Complete guide to pipes, redirects, variables, control flow, globbing, and all other shell features supported by faux-shell."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+faux-shell implements a large subset of bash syntax. This page covers every supported feature with runnable examples.
+
+## Pipes and redirects
+
+### Pipe (`|`)
+
+Pipe the stdout of one command into the stdin of the next.
+
+```typescript
+const result = await shell.run('echo "hello world" | tr " " "\\n" | sort');
+// stdout: "hello\nworld\n"
+```
+
+### Write to file (`>`) and append (`>>`)
+
+```typescript
+await shell.run('echo "first line" > /tmp/out.txt');
+await shell.run('echo "second line" >> /tmp/out.txt');
+
+const result = await shell.run('cat /tmp/out.txt');
+// stdout: "first line\nsecond line\n"
+```
+
+### Read stdin from file (`<`)
+
+```typescript
+await shell.run('echo "banana\\napple\\ncherry" > /tmp/fruits.txt');
+const result = await shell.run('sort < /tmp/fruits.txt');
+// stdout: "apple\nbanana\ncherry\n"
+```
+
+### Here-string (`<<<`)
+
+Pass a string directly as stdin to a command.
+
+```typescript
+const result = await shell.run('cat <<< "inline input"');
+// stdout: "inline input\n"
+```
+
+### Redirect stderr (`2>`)
+
+```typescript
+await shell.run('ls /nonexistent 2> /tmp/errors.txt');
+const result = await shell.run('cat /tmp/errors.txt');
+// stderr was captured to the file
+```
+
+### Redirect both stdout and stderr (`&>`)
+
+```typescript
+await shell.run('ls /nonexistent &> /tmp/all.txt');
+```
+
+## Operators
+
+### AND (`&&`)
+
+Run the next command only if the previous one succeeded (exit code 0).
+
+```typescript
+const result = await shell.run('true && echo "success"');
+// stdout: "success\n"
+
+const result2 = await shell.run('false && echo "never runs"');
+// stdout: ""
+```
+
+### OR (`||`)
+
+Run the next command only if the previous one failed (non-zero exit code).
+
+```typescript
+const result = await shell.run('false || echo "fallback"');
+// stdout: "fallback\n"
+```
+
+### Semicolon (`;`)
+
+Always run the next command, regardless of the previous exit code.
+
+```typescript
+const result = await shell.run('false ; echo "always runs"');
+// stdout: "always runs\n"
+```
+
+### Background (`&`)
+
+Virtual background execution. The command runs and the shell continues.
+
+```typescript
+await shell.run('echo "background" &');
+```
+
+:::note
+Background execution is virtual — commands still run sequentially in the JavaScript event loop, but the shell treats them as backgrounded for job control purposes.
+:::
+
+## Variables
+
+### Basic variable assignment and expansion
+
+```typescript
+await shell.run('export NAME="world"');
+const result = await shell.run('echo "hello $NAME"');
+// stdout: "hello world\n"
+```
+
+### Expansion forms
+
+<Tabs>
+<TabItem label="Defaults">
+```typescript
+// ${VAR:-default} — use default if VAR is unset or empty
+const r1 = await shell.run('echo ${MISSING:-fallback}');
+// stdout: "fallback\n"
+
+// ${VAR:=value} — assign default if VAR is unset or empty
+await shell.run('echo ${DB_HOST:=localhost}');
+const r2 = await shell.run('echo $DB_HOST');
+// stdout: "localhost\n"
+
+// ${VAR:+alt} — use alt if VAR IS set
+await shell.run('export X=1');
+const r3 = await shell.run('echo ${X:+present}');
+// stdout: "present\n"
+
+// ${VAR:?error} — error if VAR is unset or empty
+const r4 = await shell.run('echo ${REQUIRED:?must be set}');
+// exitCode: 1, stderr contains "must be set"
+```
+</TabItem>
+<TabItem label="String operations">
+```typescript
+await shell.run('export FILE="document.tar.gz"');
+
+// ${#VAR} — string length
+const r1 = await shell.run('echo ${#FILE}');
+// stdout: "15\n"
+
+// ${VAR%pat} — remove shortest suffix match
+const r2 = await shell.run('echo ${FILE%.gz}');
+// stdout: "document.tar\n"
+
+// ${VAR#pat} — remove shortest prefix match
+await shell.run('export PATH_STR="/usr/local/bin"');
+const r3 = await shell.run('echo ${PATH_STR#/usr}');
+// stdout: "/local/bin\n"
+
+// ${VAR/pat/rep} — pattern replacement
+const r4 = await shell.run('echo ${FILE/tar/zip}');
+// stdout: "document.zip.gz\n"
+```
+</TabItem>
+<TabItem label="Case conversion">
+```typescript
+await shell.run('export MSG="Hello World"');
+
+// ${VAR^^} — uppercase
+const r1 = await shell.run('echo ${MSG^^}');
+// stdout: "HELLO WORLD\n"
+
+// ${VAR,,} — lowercase
+const r2 = await shell.run('echo ${MSG,,}');
+// stdout: "hello world\n"
+```
+</TabItem>
+</Tabs>
+
+### Special variables
+
+| Variable  | Meaning                                       |
+| --------- | --------------------------------------------- |
+| `$?`      | Exit code of the last command                 |
+| `$#`      | Number of positional parameters               |
+| `$@`      | All positional parameters (individually quoted)|
+| `$*`      | All positional parameters (as a single string)|
+| `$0`      | Name of the shell or script                   |
+| `$$`      | Process ID (virtual)                          |
+| `$RANDOM` | Random integer                                |
+
+```typescript
+await shell.run('true');
+const r1 = await shell.run('echo $?');
+// stdout: "0\n"
+
+await shell.run('false');
+const r2 = await shell.run('echo $?');
+// stdout: "1\n"
+```
+
+## Quoting
+
+### Single quotes
+
+Content is treated as a literal string. No variable expansion, no escape sequences.
+
+```typescript
+const result = await shell.run("echo 'hello $NAME'");
+// stdout: "hello $NAME\n"
+```
+
+### Double quotes
+
+Variables and command substitutions are expanded. Whitespace is preserved.
+
+```typescript
+await shell.run('export NAME=world');
+const result = await shell.run('echo "hello $NAME"');
+// stdout: "hello world\n"
+```
+
+### Backslash escaping
+
+Escape special characters with a backslash.
+
+```typescript
+const result = await shell.run('echo "price is \\$5"');
+// stdout: "price is $5\n"
+```
+
+## Control flow
+
+### `if` / `then` / `elif` / `else` / `fi`
+
+```typescript
+const result = await shell.run(`
+  if [ 1 -eq 1 ]; then
+    echo "equal"
+  elif [ 1 -eq 2 ]; then
+    echo "nope"
+  else
+    echo "fallback"
+  fi
+`);
+// stdout: "equal\n"
+```
+
+### `for` loop
+
+```typescript
+const result = await shell.run(`
+  for fruit in apple banana cherry; do
+    echo "I like $fruit"
+  done
+`);
+// stdout: "I like apple\nI like banana\nI like cherry\n"
+```
+
+C-style for loops:
+
+```typescript
+const result = await shell.run(`
+  for ((i=0; i<3; i++)); do
+    echo $i
+  done
+`);
+// stdout: "0\n1\n2\n"
+```
+
+### `while` and `until`
+
+```typescript
+const result = await shell.run(`
+  x=3
+  while [ $x -gt 0 ]; do
+    echo $x
+    x=$((x - 1))
+  done
+`);
+// stdout: "3\n2\n1\n"
+```
+
+```typescript
+const result = await shell.run(`
+  n=0
+  until [ $n -eq 3 ]; do
+    echo $n
+    n=$((n + 1))
+  done
+`);
+// stdout: "0\n1\n2\n"
+```
+
+### `case` / `esac`
+
+```typescript
+const result = await shell.run(`
+  ext="jpg"
+  case $ext in
+    png|jpg|gif)
+      echo "image" ;;
+    txt|md)
+      echo "text" ;;
+    *)
+      echo "unknown" ;;
+  esac
+`);
+// stdout: "image\n"
+```
+
+### Functions
+
+```typescript
+await shell.run(`
+  greet() {
+    echo "Hello, $1!"
+  }
+`);
+
+const result = await shell.run('greet "Alice"');
+// stdout: "Hello, Alice!\n"
+```
+
+Functions persist across `shell.run()` calls, just like variables and files.
+
+## Glob and brace expansion
+
+### Glob patterns
+
+| Pattern | Matches                              |
+| ------- | ------------------------------------ |
+| `*`     | Any string (excluding `/`)           |
+| `?`     | Any single character                 |
+| `[abc]` | Any character in the set             |
+| `**`    | Any path, including subdirectories   |
+
+```typescript
+const shell = new Shell({
+  fs: {
+    "/data/report.csv": "a,b",
+    "/data/report.json": "{}",
+    "/data/logs/app.log": "info",
+  },
+});
+
+const r1 = await shell.run('ls /data/*.csv');
+// lists report.csv
+
+const r2 = await shell.run('echo /data/**/*.log');
+// stdout: "/data/logs/app.log\n"
+```
+
+### Brace expansion
+
+```typescript
+// Comma-separated
+const r1 = await shell.run('echo {apple,banana,cherry}');
+// stdout: "apple banana cherry\n"
+
+// Numeric range
+const r2 = await shell.run('echo {1..5}');
+// stdout: "1 2 3 4 5\n"
+
+// Alphabetic range
+const r3 = await shell.run('echo {a..f}');
+// stdout: "a b c d e f\n"
+
+// Combined with paths
+await shell.run('mkdir -p /app/{src,test,docs}');
+const r4 = await shell.run('ls /app');
+// lists src, test, docs
+```
+
+## Command substitution
+
+Capture the output of a command and use it inline with `$(...)`.
+
+```typescript
+const result = await shell.run('echo "Today is $(date +%A)"');
+```
+
+Nested substitution works too:
+
+```typescript
+await shell.run('echo "lines: $(cat /tmp/data.txt | wc -l)"');
+```
+
+## Arithmetic
+
+Use `$((...))` for integer arithmetic.
+
+```typescript
+const r1 = await shell.run('echo $((2 + 3 * 4))');
+// stdout: "14\n"
+
+const r2 = await shell.run('echo $((10 % 3))');
+// stdout: "1\n"
+
+const r3 = await shell.run('x=5; echo $((x * 2))');
+// stdout: "10\n"
+```
+
+Supported operators: `+`, `-`, `*`, `/`, `%`, `**`, `<<`, `>>`, `&`, `|`, `^`, `~`, `!`, `&&`, `||`, `<`, `>`, `<=`, `>=`, `==`, `!=`, and ternary `? :`.
+
+```typescript
+const result = await shell.run('echo $(( 10 > 5 ? 1 : 0 ))');
+// stdout: "1\n"
+```
+
+## Combining features
+
+These features compose naturally, just like in a real shell.
+
+```typescript
+const shell = new Shell({
+  fs: {
+    "/etc/hosts": "127.0.0.1 localhost\n192.168.1.1 gateway\n10.0.0.1 server\n",
+  },
+});
+
+// Pipes + variables + control flow
+const result = await shell.run(`
+  export SEARCH="192"
+  count=$(grep -c "$SEARCH" /etc/hosts)
+  if [ "$count" -gt 0 ]; then
+    echo "Found $count matches for $SEARCH"
+    grep "$SEARCH" /etc/hosts | cut -d' ' -f2
+  else
+    echo "No matches"
+  fi
+`);
+// stdout: "Found 1 matches for 192\ngateway\n"
+```

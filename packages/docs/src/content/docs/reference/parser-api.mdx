@@ -1,0 +1,480 @@
+---
+title: "Parser API"
+description: "API reference for the faux-shell parser — tokenizer, parser, AST node types, and WASM opt-in."
+---
+
+The parser package converts shell command strings into an abstract syntax tree (AST). It is available as a standalone package or re-exported from the main `faux-shell` package.
+
+```typescript
+import { parse, Parser, Tokenizer, useWasmParser } from "@faux-shell/parser";
+// or
+import { parse, useWasmParser } from "faux-shell";
+```
+
+---
+
+## Quick Parse
+
+```typescript
+function parse(input: string): AstNode
+```
+
+Parse a shell command string into an AST in one call. This is the simplest way to use the parser and what the `Shell` class uses internally.
+
+```typescript
+import { parse } from "@faux-shell/parser";
+
+const ast = parse("echo hello | grep hell");
+// Returns a PipelineNode with two CommandNodes
+```
+
+If a WASM parser has been registered via `useWasmParser()`, `parse()` delegates to it. Otherwise it uses the built-in TypeScript parser.
+
+---
+
+## Parser Class
+
+```typescript
+class Parser {
+  constructor(input: string);
+  parse(): AstNode;
+}
+```
+
+The `Parser` class gives you direct access to the parsing step. Internally it creates a `Tokenizer`, reads tokens, and builds the AST.
+
+```typescript
+import { Parser } from "@faux-shell/parser";
+
+const parser = new Parser('for i in 1 2 3; do echo $i; done');
+const ast = parser.parse();
+// Returns a ForNode
+```
+
+---
+
+## Tokenizer Class
+
+```typescript
+class Tokenizer {
+  constructor(input: string);
+  next(): Token;
+  peek(): Token;
+}
+```
+
+The `Tokenizer` breaks a shell command string into tokens. Each token has a type, value, and source position.
+
+```typescript
+import { Tokenizer } from "@faux-shell/parser";
+
+const tokenizer = new Tokenizer('echo "hello world" | grep hello');
+let token = tokenizer.next();
+
+while (token.type !== "EOF") {
+  console.log(token.type, token.value);
+  token = tokenizer.next();
+}
+// WORD echo
+// WORD "hello world"
+// PIPE |
+// WORD grep
+// WORD hello
+// EOF
+```
+
+### Token
+
+```typescript
+interface Token {
+  type: TokenType;
+  value: string;
+  position: Position;
+}
+
+interface Position {
+  line: number;
+  column: number;
+  offset: number;
+}
+```
+
+### Token Types
+
+| Type | Examples |
+|---|---|
+| `WORD` | `echo`, `hello`, `"quoted string"`, `$VAR` |
+| `ASSIGNMENT_WORD` | `FOO=bar`, `PATH=/usr/bin` |
+| `PIPE` | `\|` |
+| `PIPE_AND` | `\|&` |
+| `AND` | `&&` |
+| `OR` | `\|\|` |
+| `SEMI` | `;` |
+| `AMP` | `&` |
+| `DSEMI` | `;;` |
+| `LESS` / `GREAT` | `<` / `>` |
+| `DLESS` / `DGREAT` | `<<` / `>>` |
+| `LESSAND` / `GREATAND` | `<&` / `>&` |
+| `TLESS` | `<<<` (here-string) |
+| `AND_GREAT` / `AND_DGREAT` | `&>` / `&>>` |
+| `LPAREN` / `RPAREN` | `(` / `)` |
+| `LBRACE` / `RBRACE` | `{` / `}` |
+| `BANG` | `!` |
+| `NEWLINE` / `EOF` | Line break / end of input |
+| Keywords | `IF`, `THEN`, `ELSE`, `ELIF`, `FI`, `FOR`, `WHILE`, `UNTIL`, `DO`, `DONE`, `CASE`, `ESAC`, `IN`, `SELECT`, `FUNCTION`, `COPROC`, `TIME` |
+
+---
+
+## WASM Parser
+
+```typescript
+function useWasmParser(module: { parse(input: string): AstNode }): void
+```
+
+Register a WASM parser module as the global parse implementation. Once registered, all calls to `parse()` -- including those made internally by `Shell.run()` -- will use the WASM parser.
+
+```typescript
+import { useWasmParser } from "@faux-shell/parser";
+import * as wasmParser from "@faux-shell/parser-wasm";
+
+useWasmParser(wasmParser);
+
+// All subsequent parse() calls use WASM
+const ast = parse("echo hello");
+```
+
+The WASM module must expose a `parse(input: string): AstNode` function that returns the same AST structure as the TypeScript parser.
+
+:::tip
+The WASM parser is optional and not required for normal usage. The TypeScript parser handles all syntax correctly. WASM is an optimization for performance-critical applications that parse thousands of commands per second.
+:::
+
+---
+
+## AST Node Types
+
+The parser produces a tree of `AstNode` values. The `AstNode` type is a discriminated union:
+
+```typescript
+type AstNode =
+  | CommandNode
+  | PipelineNode
+  | ListNode
+  | SubshellNode
+  | BraceGroupNode
+  | AssignmentNode
+  | IfNode
+  | ForNode
+  | WhileNode
+  | UntilNode
+  | CaseNode
+  | SelectNode
+  | FunctionNode
+  | ArithmeticNode;
+```
+
+### `CommandNode`
+
+A simple command: a name, arguments, prefix assignments, and redirects.
+
+```typescript
+interface CommandNode {
+  type: "command";
+  name: Word;
+  prefix: AssignmentNode[];  // Inline assignments like FOO=bar cmd
+  args: Word[];
+  redirects: Redirect[];
+}
+```
+
+```bash
+FOO=bar echo hello world > output.txt
+# name: "echo", args: ["hello", "world"]
+# prefix: [{ name: "FOO", value: "bar" }]
+# redirects: [{ op: ">", target: "output.txt" }]
+```
+
+### `PipelineNode`
+
+One or more commands connected by pipes.
+
+```typescript
+interface PipelineNode {
+  type: "pipeline";
+  commands: AstNode[];
+  negated: boolean;       // ! pipeline
+  pipeStderr: boolean;    // |& (pipe stderr too)
+}
+```
+
+```bash
+! cat file.txt | grep error | wc -l
+# negated: true, commands: [cat, grep, wc]
+```
+
+### `ListNode`
+
+Two commands joined by a list operator.
+
+```typescript
+interface ListNode {
+  type: "list";
+  left: AstNode;
+  right: AstNode;
+  operator: "&&" | "||" | ";" | "&";
+}
+```
+
+```bash
+mkdir -p /app && echo "created"   # operator: "&&"
+cmd1 || cmd2                       # operator: "||"
+cmd1 ; cmd2                        # operator: ";"
+cmd1 &                             # operator: "&"
+```
+
+### `SubshellNode`
+
+Commands grouped in a subshell (inherits a forked environment).
+
+```typescript
+interface SubshellNode {
+  type: "subshell";
+  body: AstNode;
+  redirects: Redirect[];
+}
+```
+
+```bash
+(cd /tmp && ls) > output.txt
+```
+
+### `BraceGroupNode`
+
+Commands grouped with braces (runs in current shell).
+
+```typescript
+interface BraceGroupNode {
+  type: "braceGroup";
+  body: AstNode;
+  redirects: Redirect[];
+}
+```
+
+```bash
+{ echo hello; echo world; } > output.txt
+```
+
+### `AssignmentNode`
+
+Variable assignment.
+
+```typescript
+interface AssignmentNode {
+  type: "assignment";
+  name: string;
+  value: Word;
+  append: boolean;    // +=
+  export: boolean;    // export FOO=bar
+  local: boolean;     // local FOO=bar
+  readonly: boolean;  // readonly FOO=bar
+}
+```
+
+### `IfNode`
+
+Conditional execution.
+
+```typescript
+interface IfNode {
+  type: "if";
+  clauses: { condition: AstNode; body: AstNode }[];
+  elseBody?: AstNode;
+  redirects: Redirect[];
+}
+```
+
+```bash
+if [ -f /etc/config ]; then
+  cat /etc/config
+elif [ -f /etc/default ]; then
+  cat /etc/default
+else
+  echo "no config"
+fi
+```
+
+### `ForNode`
+
+For loop iteration.
+
+```typescript
+interface ForNode {
+  type: "for";
+  variable: string;
+  words?: Word[];      // Omitted for "for x; do" (iterates $@)
+  body: AstNode;
+  redirects: Redirect[];
+}
+```
+
+```bash
+for file in *.txt; do echo "$file"; done
+```
+
+### `WhileNode` / `UntilNode`
+
+While and until loops.
+
+```typescript
+interface WhileNode {
+  type: "while";
+  condition: AstNode;
+  body: AstNode;
+  redirects: Redirect[];
+}
+
+interface UntilNode {
+  type: "until";
+  condition: AstNode;
+  body: AstNode;
+  redirects: Redirect[];
+}
+```
+
+### `CaseNode`
+
+Case/switch statement.
+
+```typescript
+interface CaseNode {
+  type: "case";
+  word: Word;
+  items: {
+    patterns: Word[];
+    body: AstNode | null;
+    terminator: ";;" | ";&" | ";;&";
+  }[];
+  redirects: Redirect[];
+}
+```
+
+```bash
+case "$1" in
+  start) echo "starting";;
+  stop)  echo "stopping";;
+  *)     echo "unknown";;
+esac
+```
+
+### `SelectNode`
+
+Select loop (menu generation).
+
+```typescript
+interface SelectNode {
+  type: "select";
+  variable: string;
+  words?: Word[];
+  body: AstNode;
+  redirects: Redirect[];
+}
+```
+
+### `FunctionNode`
+
+Function definition.
+
+```typescript
+interface FunctionNode {
+  type: "function";
+  name: string;
+  body: AstNode;
+  redirects: Redirect[];
+}
+```
+
+```bash
+greet() { echo "Hello, $1!"; }
+```
+
+### `ArithmeticNode`
+
+Arithmetic evaluation (`(( expr ))`).
+
+```typescript
+interface ArithmeticNode {
+  type: "arithmetic";
+  expression: string;
+}
+```
+
+```bash
+(( x = 5 + 3 ))
+```
+
+---
+
+## Word and WordPart
+
+Arguments and values are represented as `Word` arrays of `WordPart` elements, which encode quoting, expansion, and globbing:
+
+```typescript
+type Word = WordPart[];
+
+type WordPart =
+  | { type: "literal"; value: string }
+  | { type: "singleQuoted"; value: string }
+  | { type: "doubleQuoted"; parts: WordPart[] }
+  | { type: "variable"; name: string; indirect?: boolean }
+  | { type: "variableExpansion"; name: string; op: string; arg: Word }
+  | { type: "variableLength"; name: string }
+  | { type: "commandSubstitution"; body: AstNode }
+  | { type: "arithmeticExpansion"; expression: string }
+  | { type: "processSubstitution"; direction: "in" | "out"; body: AstNode }
+  | { type: "glob"; pattern: string }
+  | { type: "tilde"; user: string }
+  | { type: "braceExpansion"; parts: Word[] };
+```
+
+| Part Type | Example | Description |
+|---|---|---|
+| `literal` | `hello` | Unquoted literal text |
+| `singleQuoted` | `'hello world'` | Single-quoted string (no expansion) |
+| `doubleQuoted` | `"hello $name"` | Double-quoted string (allows variable/command expansion) |
+| `variable` | `$HOME`, `${HOME}` | Variable reference |
+| `variableExpansion` | `${var:-default}` | Variable with expansion operator (`:-`, `:+`, `:=`, `#`, `##`, `%`, `%%`, `/`, `//`) |
+| `variableLength` | `${#var}` | Length of variable value |
+| `commandSubstitution` | `` `cmd` ``, `$(cmd)` | Command substitution |
+| `arithmeticExpansion` | `$((1+2))` | Arithmetic expansion |
+| `processSubstitution` | `<(cmd)`, `>(cmd)` | Process substitution |
+| `glob` | `*.txt`, `file?.log` | Glob pattern |
+| `tilde` | `~`, `~user` | Tilde expansion |
+| `braceExpansion` | `{a,b,c}`, `{1..5}` | Brace expansion |
+
+---
+
+## Redirect
+
+```typescript
+interface Redirect {
+  fd: number;
+  op: ">" | ">>" | "<" | "<<" | "<<<" | ">&" | "<&" | "&>" | "&>>" | "<>";
+  target: Word;
+  heredocDelimiter?: string;
+  heredocBody?: string;
+  heredocQuoted?: boolean;
+}
+```
+
+| Operator | Description |
+|---|---|
+| `>` | Redirect stdout to file (overwrite) |
+| `>>` | Redirect stdout to file (append) |
+| `<` | Redirect file to stdin |
+| `<<` | Here-document |
+| `<<<` | Here-string |
+| `>&` | Duplicate output file descriptor |
+| `<&` | Duplicate input file descriptor |
+| `&>` | Redirect both stdout and stderr |
+| `&>>` | Append both stdout and stderr |
+| `<>` | Open file for reading and writing |

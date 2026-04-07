@@ -1,0 +1,282 @@
+---
+title: "Virtual Filesystem"
+description: "How to use the in-memory virtual filesystem: seeding files, path resolution, permissions, symlinks, glob matching, snapshots, and mount points."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+faux-shell includes a complete in-memory virtual filesystem (VFS) that behaves like a real Linux filesystem. Files, directories, symlinks, permissions, and timestamps all work as expected.
+
+## Creating a shell with files
+
+Pass an `fs` object to pre-populate the filesystem. Keys are absolute paths, values are file contents. Parent directories are created automatically.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: {
+    "/etc/config.json": '{"key": "value"}',
+    "/home/user/script.sh": "#!/bin/bash\necho hello",
+    "/data/users.csv": "name,age\nalice,30\nbob,25\n",
+  },
+  cwd: "/home/user",
+});
+```
+
+:::tip
+You don't need to create directories explicitly. When you seed `/home/user/script.sh`, the directories `/home` and `/home/user` are created for you.
+:::
+
+## Default directories
+
+Every shell starts with these standard directories already created:
+
+- `/tmp`
+- `/root`
+- `/home`
+- `/usr/bin`
+- `/bin`
+- `/dev`
+- `/var`
+
+## Path resolution
+
+The VFS supports all standard path forms.
+
+```typescript
+// Absolute paths
+await shell.run("cat /etc/config.json");
+
+// Relative paths (resolved against cwd)
+await shell.run("cat ./script.sh");
+
+// Parent directory traversal
+await shell.run("cat ../script.sh");
+
+// Dot (current directory)
+await shell.run("ls .");
+```
+
+When using the filesystem API directly, paths are resolved against the shell's current working directory.
+
+## Permissions
+
+Files and directories have Unix-style mode bits that are checked on access.
+
+```typescript
+// Set permissions via shell command
+await shell.run("chmod 755 /home/user/script.sh");
+await shell.run("chmod 600 /etc/config.json");
+
+// Or via the filesystem API
+shell.filesystem.chmod("/home/user/script.sh", 0o755);
+
+// Check permissions with stat
+const stats = shell.filesystem.stat("/home/user/script.sh");
+console.log(stats.mode); // 0o755
+```
+
+:::caution
+Permission checks are enforced. Writing to a file with mode `0o444` (read-only) will fail, just like on a real system.
+:::
+
+## Symlinks
+
+The VFS supports symbolic links with loop detection.
+
+```typescript
+await shell.run("ln -s /etc/config.json /tmp/config-link");
+const result = await shell.run("cat /tmp/config-link");
+// reads /etc/config.json through the symlink
+
+// Resolve a symlink to its target
+const target = shell.filesystem.readlink("/tmp/config-link");
+// target: "/etc/config.json"
+
+// Resolve the full real path (follows all symlinks)
+const real = shell.filesystem.realpath("/tmp/config-link");
+// real: "/etc/config.json"
+```
+
+Circular symlink chains are detected and reported as errors rather than causing infinite loops.
+
+## Timestamps
+
+Every file and directory tracks three timestamps:
+
+| Timestamp | Meaning              | Updated when                     |
+| --------- | -------------------- | -------------------------------- |
+| `atime`   | Last access time     | File is read                     |
+| `mtime`   | Last modification    | File content changes             |
+| `ctime`   | Last status change   | Metadata or content changes      |
+
+```typescript
+const stats = shell.filesystem.stat("/etc/config.json");
+console.log(new Date(stats.mtime)); // when the file was last written
+```
+
+## Glob matching
+
+Match files using shell glob patterns, both from commands and the API.
+
+<Tabs>
+<TabItem label="Shell commands">
+```typescript
+const shell = new Shell({
+  fs: {
+    "/logs/app.log": "info: started",
+    "/logs/error.log": "error: failed",
+    "/logs/access.log": "GET /",
+    "/logs/archive/old.log": "old",
+  },
+});
+
+await shell.run("ls /logs/*.log");
+await shell.run("cat /logs/{app,error}.log");
+await shell.run("echo /logs/**/*.log");
+```
+</TabItem>
+<TabItem label="Filesystem API">
+```typescript
+const logs = shell.filesystem.glob("*.log", { cwd: "/logs" });
+// ["/logs/access.log", "/logs/app.log", "/logs/error.log"]
+
+const all = shell.filesystem.glob("**/*.log", { cwd: "/logs" });
+// includes /logs/archive/old.log
+```
+</TabItem>
+</Tabs>
+
+Supported patterns:
+
+| Pattern   | Matches                            |
+| --------- | ---------------------------------- |
+| `*`       | Any string within a path segment   |
+| `?`       | Any single character               |
+| `[abc]`   | Any character in the set           |
+| `**`      | Any path depth (recursive)         |
+
+## Accessing the VFS directly
+
+The `shell.filesystem` property exposes the full `IFileSystem` interface for programmatic access.
+
+### Reading and writing
+
+```typescript
+shell.filesystem.writeFile("/tmp/data.txt", "hello");
+const content = shell.filesystem.readFile("/tmp/data.txt");
+// content: "hello"
+
+shell.filesystem.appendFile("/tmp/data.txt", " world");
+const updated = shell.filesystem.readFile("/tmp/data.txt");
+// updated: "hello world"
+```
+
+### Directory operations
+
+```typescript
+shell.filesystem.mkdir("/opt/app", { recursive: true });
+const entries = shell.filesystem.readDir("/opt");
+// entries: ["app"]
+```
+
+### File info
+
+```typescript
+const stats = shell.filesystem.stat("/tmp/data.txt");
+console.log(stats.size);        // content length
+console.log(stats.isFile());    // true
+console.log(stats.isDirectory()); // false
+console.log(stats.isSymlink()); // false
+```
+
+### Checking existence
+
+```typescript
+if (shell.filesystem.exists("/tmp/data.txt")) {
+  const content = shell.filesystem.readFile("/tmp/data.txt");
+}
+```
+
+### Copy, move, remove
+
+```typescript
+shell.filesystem.cp("/tmp/data.txt", "/tmp/backup.txt");
+shell.filesystem.mv("/tmp/backup.txt", "/tmp/old.txt");
+shell.filesystem.rm("/tmp/old.txt");
+
+// Recursive operations
+shell.filesystem.cp("/opt/app", "/opt/app-backup", { recursive: true });
+shell.filesystem.rm("/opt/app-backup", { recursive: true });
+```
+
+### Full API reference
+
+| Method                                    | Description                             |
+| ----------------------------------------- | --------------------------------------- |
+| `readFile(path)`                          | Read file contents as a string          |
+| `writeFile(path, content)`                | Write string content to a file          |
+| `appendFile(path, content)`               | Append string content to a file         |
+| `readDir(path)`                           | List directory entries                  |
+| `stat(path)`                              | Get file stats (follows symlinks)       |
+| `lstat(path)`                             | Get file stats (does not follow symlinks)|
+| `exists(path)`                            | Check if a path exists                  |
+| `mkdir(path, options?)`                   | Create a directory                      |
+| `rm(path, options?)`                      | Remove a file or directory              |
+| `cp(src, dest, options?)`                 | Copy a file or directory                |
+| `mv(src, dest)`                           | Move/rename a file or directory         |
+| `chmod(path, mode)`                       | Set permission bits                     |
+| `chown(path, uid, gid)`                   | Set ownership                           |
+| `symlink(target, path)`                   | Create a symbolic link                  |
+| `readlink(path)`                          | Read the target of a symbolic link      |
+| `realpath(path)`                          | Resolve symlinks to get the real path   |
+| `glob(pattern, options?)`                 | Match files against a glob pattern      |
+
+## Snapshots
+
+Export the entire filesystem as a flat `Record<string, string>` — every file path mapped to its content. Useful for testing, debugging, or serializing state.
+
+```typescript
+const shell = new Shell({
+  fs: { "/app/config.json": '{"port": 3000}' },
+});
+
+await shell.run('echo "started" > /app/logs/boot.log');
+
+const files = shell.snapshot();
+// {
+//   "/app/config.json": '{"port": 3000}',
+//   "/app/logs/boot.log": "started\n",
+// }
+```
+
+:::tip
+Snapshots only include files, not empty directories. The output is a plain object that you can serialize to JSON, compare in tests, or use to seed a new shell.
+:::
+
+## Mount points
+
+Mount a custom `IFileSystem` implementation at any path. Reads and writes under that path are delegated to the mounted filesystem.
+
+```typescript
+import type { IFileSystem } from "faux-shell";
+
+const apiFs: IFileSystem = {
+  readFile(path) {
+    // Fetch from an API, database, or any other source
+    return `{"endpoint": "${path}"}`;
+  },
+  exists(path) {
+    return true;
+  },
+  // ... implement other IFileSystem methods as needed
+};
+
+shell.mount("/api", apiFs);
+
+const result = await shell.run("cat /api/users");
+// stdout: '{"endpoint": "/users"}\n'
+```
+
+This lets you bridge the virtual filesystem to real data sources while keeping the shell's standard command interface.

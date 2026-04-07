@@ -1,0 +1,14 @@
+{
+  "name": "faux-shell-monorepo",
+  "private": true,
+  "scripts": {
+    "shell": "bun run packages/cli/src/repl.ts",
+    "docs": "bun run --cwd packages/docs dev",
+    "docs:build": "bun run --cwd packages/docs build",
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
+    "check": "biome check .",
+    "format": "biome format --write ."
+  },
+  "workspaces": ["packages/*"]
+}

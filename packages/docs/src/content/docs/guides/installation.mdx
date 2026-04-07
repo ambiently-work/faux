@@ -1,0 +1,108 @@
+---
+title: Installation
+description: How to install faux-shell in your project.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Install the package
+
+<Tabs>
+  <TabItem label="bun">
+    ```bash
+    bun add faux-shell
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install faux-shell
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add faux-shell
+    ```
+  </TabItem>
+</Tabs>
+
+That is all you need. The package has zero dependencies (the parser is bundled).
+
+## Import
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell();
+const result = await shell.run("echo hello");
+```
+
+The main export is the `Shell` class. You can also import supporting types and classes:
+
+```typescript
+import {
+  Shell,
+  type ShellOptions,
+  type ShellResult,
+  type CommandHandler,
+  type CommandContext,
+  CommandRegistry,
+  VirtualFileSystem,
+  Environment,
+} from "faux-shell";
+```
+
+## Parser-only install
+
+If you only need the shell parser (for syntax highlighting, linting, or building your own executor), install the parser package directly:
+
+<Tabs>
+  <TabItem label="bun">
+    ```bash
+    bun add @faux-shell/parser
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @faux-shell/parser
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @faux-shell/parser
+    ```
+  </TabItem>
+</Tabs>
+
+```typescript
+import { parse, type AstNode } from "@faux-shell/parser";
+
+const ast = parse('echo "hello world" | grep hello');
+```
+
+:::note
+When you install `faux-shell`, the parser is included and re-exported. You only need the separate `@faux-shell/parser` package if you want the parser without the shell runtime.
+:::
+
+## TypeScript
+
+faux-shell ships with full TypeScript types out of the box. No `@types` package needed. The library is authored in TypeScript and exports its types directly.
+
+## Runtime requirements
+
+faux-shell works on any JavaScript runtime that supports ESM:
+
+- **Bun** >= 1.0
+- **Node.js** >= 18
+- **Deno** >= 1.30
+- **Cloudflare Workers**
+- **Modern browsers** (Chrome, Firefox, Safari, Edge)
+
+There are no native bindings, no filesystem access, and no Node.js-specific APIs. The library is pure JavaScript and runs anywhere.
+
+:::tip
+faux-shell is ~50KB gzipped — small enough for edge runtimes and browser bundles without impacting load times.
+:::
+
+## Next steps
+
+Head to the [Quick Start](/guides/quick-start/) to create your first shell instance and start running commands.

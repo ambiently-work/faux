@@ -1,0 +1,341 @@
+---
+title: "Custom Commands"
+description: "How to extend faux-shell with your own commands using the CommandHandler interface."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+faux-shell ships with 111 built-in commands, but the real power comes from adding your own. Custom commands have full access to the filesystem, environment, stdin/stdout, and can even run sub-commands.
+
+## The CommandHandler interface
+
+Every command — built-in or custom — implements this interface:
+
+```typescript
+interface CommandHandler {
+  name: string;
+  execute(ctx: CommandContext): number | Promise<number>;
+}
+```
+
+The `execute` function receives a `CommandContext` with everything the command needs:
+
+```typescript
+interface CommandContext {
+  /** Arguments passed to the command (argv[1:]) */
+  args: string[];
+  /** Standard input content */
+  stdin: string;
+  /** Environment variables (read/write) */
+  env: Environment;
+  /** Virtual filesystem access */
+  fs: IFileSystem;
+  /** Current working directory */
+  cwd: string;
+  /** Write to stdout */
+  stdout: WritableBuffer;
+  /** Write to stderr */
+  stderr: WritableBuffer;
+  /** Resolve a path relative to cwd */
+  resolve(path: string): string;
+  /** Run a sub-command */
+  subExec(command: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+}
+```
+
+Return `0` for success, any non-zero value for failure.
+
+## Registering commands
+
+<Tabs>
+<TabItem label="At construction">
+```typescript
+import { Shell } from "faux-shell";
+import type { CommandHandler } from "faux-shell";
+
+const myCommand: CommandHandler = {
+  name: "hello",
+  execute(ctx) {
+    const name = ctx.args[0] ?? "world";
+    ctx.stdout.write(`Hello, ${name}!\n`);
+    return 0;
+  },
+};
+
+const shell = new Shell({
+  commands: [myCommand],
+});
+```
+</TabItem>
+<TabItem label="After construction">
+```typescript
+const shell = new Shell();
+
+shell.register({
+  name: "hello",
+  execute(ctx) {
+    ctx.stdout.write(`Hello, ${ctx.args[0] ?? "world"}!\n`);
+    return 0;
+  },
+});
+```
+</TabItem>
+</Tabs>
+
+Custom commands work with all shell features — pipes, redirects, variables, and control flow:
+
+```typescript
+await shell.run('hello Alice | tr "a-z" "A-Z"');
+// stdout: "HELLO, ALICE!\n"
+
+await shell.run('hello Bob > /tmp/greeting.txt');
+```
+
+You can also remove a command:
+
+```typescript
+shell.unregister("hello");
+```
+
+## Examples
+
+### HTTP fetch command
+
+A `curl`-like command that fetches URLs. This shows how custom commands can bridge the virtual shell to real I/O.
+
+```typescript
+shell.register({
+  name: "fetch",
+  async execute(ctx) {
+    const url = ctx.args[0];
+    if (!url) {
+      ctx.stderr.write("fetch: missing URL\n");
+      return 1;
+    }
+
+    try {
+      const response = await fetch(url);
+      const body = await response.text();
+      ctx.stdout.write(body);
+      return response.ok ? 0 : 1;
+    } catch (err) {
+      ctx.stderr.write(`fetch: ${err}\n`);
+      return 1;
+    }
+  },
+});
+
+// Use it like any other command
+await shell.run('fetch https://api.example.com/users | grep "alice"');
+```
+
+### JSON query command
+
+A lightweight `jq`-like command for extracting values from JSON.
+
+```typescript
+shell.register({
+  name: "jq",
+  execute(ctx) {
+    const query = ctx.args[0];
+    if (!query) {
+      ctx.stderr.write("jq: missing query\n");
+      return 1;
+    }
+
+    try {
+      const data = JSON.parse(ctx.stdin);
+      // Simple dot-notation path: .key.nested
+      const keys = query.replace(/^\./, "").split(".");
+      let result: unknown = data;
+      for (const key of keys) {
+        if (result == null || typeof result !== "object") break;
+        result = (result as Record<string, unknown>)[key];
+      }
+      ctx.stdout.write(JSON.stringify(result, null, 2) + "\n");
+      return 0;
+    } catch {
+      ctx.stderr.write("jq: invalid JSON input\n");
+      return 1;
+    }
+  },
+});
+
+// Pipe JSON through it
+await shell.run('cat /etc/config.json | jq .database.host');
+```
+
+### Database query command
+
+Connect the shell to a database for interactive queries.
+
+```typescript
+import { db } from "./my-database";
+
+shell.register({
+  name: "dbquery",
+  async execute(ctx) {
+    const sql = ctx.args.join(" ") || ctx.stdin.trim();
+    if (!sql) {
+      ctx.stderr.write("dbquery: no SQL provided\n");
+      return 1;
+    }
+
+    try {
+      const rows = await db.query(sql);
+      for (const row of rows) {
+        ctx.stdout.write(JSON.stringify(row) + "\n");
+      }
+      return 0;
+    } catch (err) {
+      ctx.stderr.write(`dbquery: ${err}\n`);
+      return 1;
+    }
+  },
+});
+
+// Use with pipes and redirects
+await shell.run('dbquery "SELECT name, email FROM users" | grep "@company.com" > /tmp/company-users.txt');
+```
+
+### Health check command
+
+Check the status of HTTP endpoints.
+
+```typescript
+shell.register({
+  name: "healthcheck",
+  async execute(ctx) {
+    const endpoints = ctx.args.length > 0
+      ? ctx.args
+      : ctx.stdin.trim().split("\n");
+
+    let allHealthy = true;
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url);
+        const status = res.ok ? "OK" : "FAIL";
+        if (!res.ok) allHealthy = false;
+        ctx.stdout.write(`${status} ${res.status} ${url}\n`);
+      } catch {
+        allHealthy = false;
+        ctx.stdout.write(`FAIL --- ${url}\n`);
+      }
+    }
+    return allHealthy ? 0 : 1;
+  },
+});
+
+// Check multiple endpoints
+await shell.run('healthcheck https://api.example.com/health https://cdn.example.com/ping');
+
+// Or pipe from a file
+await shell.run('cat /etc/endpoints.txt | healthcheck');
+```
+
+### Custom file format reader
+
+Read domain-specific file formats and output structured data.
+
+```typescript
+shell.register({
+  name: "readcsv",
+  execute(ctx) {
+    const filePath = ctx.args[0];
+    const input = filePath
+      ? ctx.fs.readFile(ctx.resolve(filePath))
+      : ctx.stdin;
+
+    const lines = input.trim().split("\n");
+    if (lines.length === 0) return 0;
+
+    const headers = lines[0].split(",");
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(",");
+      const obj: Record<string, string> = {};
+      headers.forEach((h, idx) => {
+        obj[h.trim()] = values[idx]?.trim() ?? "";
+      });
+      ctx.stdout.write(JSON.stringify(obj) + "\n");
+    }
+    return 0;
+  },
+});
+
+// Convert CSV to JSON lines
+await shell.run('readcsv /data/users.csv | grep "alice"');
+```
+
+## Using sub-commands
+
+Commands can run other shell commands via `ctx.subExec()`. This is useful for commands that compose other commands or need to evaluate dynamic strings.
+
+```typescript
+shell.register({
+  name: "each-line",
+  async execute(ctx) {
+    const template = ctx.args.join(" ");
+    if (!template) {
+      ctx.stderr.write("each-line: missing command template\n");
+      return 1;
+    }
+
+    const lines = ctx.stdin.trim().split("\n");
+    for (const line of lines) {
+      const command = template.replace("{}", line);
+      const result = await ctx.subExec(command);
+      ctx.stdout.write(result.stdout);
+      if (result.stderr) ctx.stderr.write(result.stderr);
+    }
+    return 0;
+  },
+});
+
+// Run a command for each line of input
+await shell.run('echo "a\\nb\\nc" | each-line "echo processing: {}"');
+// stdout: "processing: a\nprocessing: b\nprocessing: c\n"
+```
+
+## Best practices
+
+:::tip[Return codes]
+Always return `0` for success and a non-zero integer for failure. This ensures your command works correctly with `&&`, `||`, `if`, and other control flow.
+:::
+
+:::tip[Error messages]
+Write errors to `ctx.stderr`, not `ctx.stdout`. This lets users redirect errors separately and keeps stdout clean for piping.
+
+```typescript
+// Good
+ctx.stderr.write("mycommand: file not found\n");
+return 1;
+
+// Avoid
+ctx.stdout.write("ERROR: file not found\n");
+return 1;
+```
+:::
+
+:::tip[Path resolution]
+Always use `ctx.resolve()` to turn a user-provided path into an absolute path. This handles relative paths, `.`, and `..` correctly based on the current working directory.
+
+```typescript
+const absPath = ctx.resolve(ctx.args[0]);
+const content = ctx.fs.readFile(absPath);
+```
+:::
+
+:::tip[Async commands]
+Commands can be async — just return a `Promise<number>`. The shell awaits the result before continuing the pipeline.
+
+```typescript
+shell.register({
+  name: "slowcmd",
+  async execute(ctx) {
+    const data = await fetchSomeData();
+    ctx.stdout.write(data);
+    return 0;
+  },
+});
+```
+:::

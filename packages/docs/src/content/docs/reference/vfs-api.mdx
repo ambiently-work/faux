@@ -1,0 +1,409 @@
+---
+title: "Virtual Filesystem API"
+description: "Complete API reference for the in-memory virtual filesystem — IFileSystem interface and VirtualFileSystem class."
+---
+
+The virtual filesystem (VFS) provides a complete in-memory filesystem with POSIX-like semantics. It supports files, directories, symlinks, permissions, glob matching, and mount points.
+
+```typescript
+import { VirtualFileSystem } from "faux-shell";
+import type { IFileSystem, VfsStats } from "faux-shell";
+```
+
+---
+
+## IFileSystem Interface
+
+The `IFileSystem` interface defines all filesystem operations. Both `VirtualFileSystem` and any custom filesystem you mount must implement this interface.
+
+```typescript
+interface IFileSystem {
+  readFile(path: string): string;
+  readDir(path: string): string[];
+  stat(path: string): VfsStats;
+  lstat(path: string): VfsStats;
+  exists(path: string): boolean;
+  writeFile(path: string, content: string): void;
+  appendFile(path: string, content: string): void;
+  mkdir(path: string, options?: { recursive?: boolean }): void;
+  rm(path: string, options?: { recursive?: boolean; force?: boolean }): void;
+  cp(src: string, dest: string, options?: { recursive?: boolean }): void;
+  mv(src: string, dest: string): void;
+  chmod(path: string, mode: number): void;
+  chown(path: string, uid: number, gid: number): void;
+  symlink(target: string, path: string): void;
+  readlink(path: string): string;
+  realpath(path: string): string;
+  glob(pattern: string, options?: { cwd?: string }): string[];
+}
+```
+
+---
+
+## VirtualFileSystem
+
+### Constructor
+
+```typescript
+const vfs = new VirtualFileSystem(options?: {
+  files?: Record<string, string>;
+  cwd?: string;
+  uid?: number;
+  gid?: number;
+});
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `files` | `Record<string, string>` | `{}` | Initial files. Keys are paths, values are contents. Parent directories are created automatically. |
+| `cwd` | `string` | `"/"` | Initial working directory. |
+| `uid` | `number` | `0` | User ID for permission checks and new file ownership. |
+| `gid` | `number` | `0` | Group ID for permission checks and new file ownership. |
+
+The constructor automatically creates these standard directories: `/tmp`, `/root`, `/home`, `/usr/bin`, `/bin`, `/dev`, `/var`.
+
+```typescript
+const vfs = new VirtualFileSystem({
+  files: {
+    "/etc/hosts": "127.0.0.1 localhost\n",
+    "/app/config.json": '{"port": 3000}',
+  },
+  cwd: "/app",
+});
+```
+
+---
+
+## Methods
+
+### `readFile(path)`
+
+```typescript
+readFile(path: string): string
+```
+
+Read the contents of a file. Follows symlinks. Throws `ENOENT` if the file does not exist, `EISDIR` if the path is a directory, or `EACCES` if read permission is denied.
+
+```typescript
+const content = vfs.readFile("/etc/hosts");
+```
+
+### `readDir(path)`
+
+```typescript
+readDir(path: string): string[]
+```
+
+List the entries in a directory. Returns an alphabetically sorted array of entry names (not full paths). Throws `ENOENT` or `ENOTDIR`.
+
+```typescript
+vfs.writeFile("/data/a.txt", "a");
+vfs.writeFile("/data/b.txt", "b");
+
+const entries = vfs.readDir("/data");
+// ["a.txt", "b.txt"]
+```
+
+### `stat(path)`
+
+```typescript
+stat(path: string): VfsStats
+```
+
+Get file status, following symlinks. Throws `ENOENT` if the path does not exist.
+
+```typescript
+const st = vfs.stat("/data/a.txt");
+console.log(st.size);         // Content length in characters
+console.log(st.isFile());     // true
+console.log(st.isDirectory()); // false
+```
+
+### `lstat(path)`
+
+```typescript
+lstat(path: string): VfsStats
+```
+
+Get file status without following symlinks. If the path is a symlink, returns info about the symlink itself.
+
+```typescript
+vfs.symlink("/data/a.txt", "/data/link");
+const st = vfs.lstat("/data/link");
+console.log(st.isSymlink()); // true
+```
+
+### `exists(path)`
+
+```typescript
+exists(path: string): boolean
+```
+
+Check whether a path exists. Follows symlinks. Returns `false` if the path does not exist or if a symlink chain is broken.
+
+```typescript
+if (vfs.exists("/etc/config.json")) {
+  const config = vfs.readFile("/etc/config.json");
+}
+```
+
+### `writeFile(path, content)`
+
+```typescript
+writeFile(path: string, content: string): void
+```
+
+Write content to a file, creating it if it does not exist or overwriting it if it does. The parent directory must exist. Follows symlinks when overwriting. Throws `EISDIR` if the path is a directory, `ENOENT` if the parent directory is missing, or `EACCES` if write permission is denied.
+
+```typescript
+vfs.writeFile("/tmp/output.txt", "Hello, world!\n");
+```
+
+### `appendFile(path, content)`
+
+```typescript
+appendFile(path: string, content: string): void
+```
+
+Append content to an existing file, or create a new file if it does not exist.
+
+```typescript
+vfs.appendFile("/tmp/log.txt", "line 1\n");
+vfs.appendFile("/tmp/log.txt", "line 2\n");
+// File contents: "line 1\nline 2\n"
+```
+
+### `mkdir(path, options?)`
+
+```typescript
+mkdir(path: string, options?: { recursive?: boolean }): void
+```
+
+Create a directory. Throws `EEXIST` if the directory already exists (unless `recursive` is true). Throws `ENOENT` if a parent directory does not exist and `recursive` is not set.
+
+```typescript
+vfs.mkdir("/app/logs", { recursive: true });
+```
+
+### `rm(path, options?)`
+
+```typescript
+rm(path: string, options?: { recursive?: boolean; force?: boolean }): void
+```
+
+Remove a file, symlink, or directory.
+
+| Option | Description |
+|---|---|
+| `recursive` | Remove directories and their contents recursively. Required for non-empty directories. |
+| `force` | Ignore nonexistent files (no error thrown). |
+
+```typescript
+vfs.rm("/tmp/output.txt");
+vfs.rm("/app/logs", { recursive: true });
+vfs.rm("/nonexistent", { force: true }); // No error
+```
+
+Throws `EISDIR` if the path is a directory and `recursive` is not set. Throws `ENOTEMPTY` if the directory is non-empty and `recursive` is not set.
+
+### `cp(src, dest, options?)`
+
+```typescript
+cp(src: string, dest: string, options?: { recursive?: boolean }): void
+```
+
+Copy a file or directory. If `dest` is an existing directory, the source is copied into it. Throws `EISDIR` if copying a directory without `recursive: true`.
+
+```typescript
+vfs.cp("/data/a.txt", "/data/b.txt");
+vfs.cp("/data", "/backup/data", { recursive: true });
+```
+
+### `mv(src, dest)`
+
+```typescript
+mv(src: string, dest: string): void
+```
+
+Move or rename a file or directory. If `dest` is an existing directory, the source is moved into it.
+
+```typescript
+vfs.mv("/tmp/old.txt", "/tmp/new.txt");
+```
+
+### `chmod(path, mode)`
+
+```typescript
+chmod(path: string, mode: number): void
+```
+
+Change the permission mode of a file or directory. Mode is an octal number.
+
+```typescript
+vfs.chmod("/app/script.sh", 0o755);
+```
+
+### `chown(path, uid, gid)`
+
+```typescript
+chown(path: string, uid: number, gid: number): void
+```
+
+Change the owner and group of a file or directory.
+
+```typescript
+vfs.chown("/app/data.txt", 1000, 1000);
+```
+
+### `symlink(target, path)`
+
+```typescript
+symlink(target: string, path: string): void
+```
+
+Create a symbolic link at `path` pointing to `target`. The target does not need to exist at creation time. Throws `EEXIST` if `path` already exists.
+
+```typescript
+vfs.symlink("/data/config.json", "/etc/config");
+```
+
+:::note
+The `target` is stored as-is (relative or absolute). It is resolved when the symlink is followed, not when it is created.
+:::
+
+### `readlink(path)`
+
+```typescript
+readlink(path: string): string
+```
+
+Read the target of a symlink without following it. Throws `EINVAL` if the path is not a symlink.
+
+```typescript
+vfs.symlink("/data/real.txt", "/data/link.txt");
+const target = vfs.readlink("/data/link.txt");
+// "/data/real.txt"
+```
+
+### `realpath(path)`
+
+```typescript
+realpath(path: string): string
+```
+
+Resolve a path to its canonical absolute form, resolving all symlinks. Throws `ENOENT` if any component of the path does not exist. Throws `ELOOP` if the symlink chain exceeds 40 hops.
+
+```typescript
+vfs.symlink("/data", "/link");
+vfs.realpath("/link/file.txt");
+// "/data/file.txt"
+```
+
+### `glob(pattern, options?)`
+
+```typescript
+glob(pattern: string, options?: { cwd?: string }): string[]
+```
+
+Find all paths in the filesystem matching a glob pattern. Returns a sorted array of absolute paths. Supports `*`, `?`, `**`, and `{a,b}` patterns.
+
+```typescript
+vfs.writeFile("/data/a.txt", "a");
+vfs.writeFile("/data/b.csv", "b");
+vfs.writeFile("/data/sub/c.txt", "c");
+
+const txtFiles = vfs.glob("/data/*.txt");
+// ["/data/a.txt"]
+
+const allTxt = vfs.glob("/data/**/*.txt");
+// ["/data/a.txt", "/data/sub/c.txt"]
+```
+
+The `cwd` option sets the base directory for relative patterns:
+
+```typescript
+const files = vfs.glob("*.txt", { cwd: "/data" });
+// ["/data/a.txt"]
+```
+
+---
+
+## VfsStats
+
+```typescript
+interface VfsStats {
+  size: number;
+  mode: number;
+  uid: number;
+  gid: number;
+  atime: number;   // Access time (ms since epoch)
+  mtime: number;   // Modification time (ms since epoch)
+  ctime: number;   // Change time (ms since epoch)
+  isFile(): boolean;
+  isDirectory(): boolean;
+  isSymlink(): boolean;
+}
+```
+
+| Field | Description |
+|---|---|
+| `size` | File content length in characters. `0` for directories and symlinks. |
+| `mode` | Permission bits as an octal number (e.g., `0o755`). |
+| `uid` / `gid` | Owner user ID and group ID. |
+| `atime` | Last access time (updated on `readFile`, `readDir`). |
+| `mtime` | Last modification time (updated on `writeFile`, `appendFile`, `mv`). |
+| `ctime` | Last status change time (updated on `chmod`, `chown`, `writeFile`). |
+| `isFile()` | Returns `true` for regular files. |
+| `isDirectory()` | Returns `true` for directories. |
+| `isSymlink()` | Returns `true` for symbolic links. Only meaningful with `lstat()`. |
+
+---
+
+## Error Codes
+
+The VFS throws standard POSIX-style errors:
+
+| Error | When |
+|---|---|
+| `ENOENT` | File or directory does not exist |
+| `EEXIST` | File or directory already exists |
+| `ENOTDIR` | Expected a directory but found something else |
+| `EISDIR` | Illegal operation on a directory (e.g., `readFile` on a dir) |
+| `EACCES` | Permission denied |
+| `ELOOP` | Too many levels of symbolic links (limit: 40) |
+| `ENOTEMPTY` | Directory not empty (non-recursive `rm` on non-empty dir) |
+| `EINVAL` | Invalid argument (e.g., `readlink` on a non-symlink) |
+
+Errors are thrown as standard `Error` objects with a message prefix like `"ENOENT: no such file or directory: /path"`.
+
+---
+
+## Mounting
+
+The `VirtualFileSystem` supports mounting other `IFileSystem` implementations at specific paths:
+
+```typescript
+vfs.mount("/mnt/external", externalFs);
+vfs.unmount("/mnt/external");
+```
+
+This is also accessible through `Shell.mount()`:
+
+```typescript
+shell.mount("/mnt/data", myCustomFs);
+```
+
+---
+
+## Snapshots
+
+```typescript
+vfs.snapshot(): Record<string, string>
+```
+
+Dump all file contents as a flat object. Only includes files (not directories or symlinks). Useful for serialization, testing, or persistence.
+
+```typescript
+const files = vfs.snapshot();
+// { "/etc/hosts": "127.0.0.1 localhost\n", "/app/config.json": "{\"port\": 3000}" }
+```

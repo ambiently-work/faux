@@ -1,0 +1,452 @@
+---
+title: "Environment API"
+description: "API reference for the Environment class — variables, aliases, functions, shell options, and special parameters."
+---
+
+The `Environment` class manages shell state: variables, exports, aliases, functions, shell options, and special parameters. Access it through `shell.environment` or use it directly.
+
+```typescript
+import { Environment } from "faux-shell";
+```
+
+---
+
+## Constructor
+
+```typescript
+const env = new Environment(initial?: Record<string, string>);
+```
+
+Creates a new environment with default variables. If `initial` is provided, those values override the defaults.
+
+### Default Variables
+
+| Variable | Default Value |
+|---|---|
+| `HOME` | `/root` |
+| `PATH` | `/usr/bin:/bin` |
+| `PWD` | `/` |
+| `SHELL` | `/bin/bash` |
+| `USER` | `root` |
+| `HOSTNAME` | `faux-shell` |
+| `TERM` | `xterm-256color` |
+| `LANG` | `en_US.UTF-8` |
+| `SHLVL` | `1` |
+| `IFS` | `<space><tab><newline>` |
+
+All default variables are automatically marked as exported.
+
+---
+
+## Variable Management
+
+### `get(name)`
+
+```typescript
+get(name: string): string | undefined
+```
+
+Get the value of a variable. Returns `undefined` if the variable is not set.
+
+```typescript
+const home = env.get("HOME"); // "/root"
+const missing = env.get("NONEXISTENT"); // undefined
+```
+
+### `set(name, value)`
+
+```typescript
+set(name: string, value: string): void
+```
+
+Set a variable. Throws if the variable is marked as readonly.
+
+```typescript
+env.set("APP_ENV", "production");
+```
+
+:::caution
+Setting `PWD` also updates the internal working directory (`env.cwd`). This keeps the two in sync.
+:::
+
+### `unset(name)`
+
+```typescript
+unset(name: string): void
+```
+
+Remove a variable entirely. Also removes it from the exported set. Throws if the variable is readonly.
+
+```typescript
+env.unset("TEMP_VAR");
+```
+
+---
+
+## Export Management
+
+### `export(name, value?)`
+
+```typescript
+export(name: string, value?: string): void
+```
+
+Mark a variable as exported. If `value` is provided, also sets the variable.
+
+```typescript
+env.export("PATH", "/usr/local/bin:/usr/bin");
+// Equivalent to: export PATH="/usr/local/bin:/usr/bin"
+
+env.export("HOME");
+// Just marks HOME as exported (if it already has a value)
+```
+
+### `unexport(name)`
+
+```typescript
+unexport(name: string): void
+```
+
+Remove the export flag from a variable. The variable itself remains set.
+
+```typescript
+env.unexport("MY_VAR");
+```
+
+### `isExported(name)`
+
+```typescript
+isExported(name: string): boolean
+```
+
+Check whether a variable is in the export set.
+
+```typescript
+env.isExported("HOME"); // true
+env.isExported("MY_LOCAL_VAR"); // false
+```
+
+---
+
+## Readonly Variables
+
+### `markReadonly(name)`
+
+```typescript
+markReadonly(name: string): void
+```
+
+Mark a variable as readonly. Subsequent `set()` or `unset()` calls for this variable will throw.
+
+```typescript
+env.set("VERSION", "1.0.0");
+env.markReadonly("VERSION");
+
+env.set("VERSION", "2.0.0"); // throws: "VERSION: readonly variable"
+```
+
+### `isReadonly(name)`
+
+```typescript
+isReadonly(name: string): boolean
+```
+
+Check whether a variable is readonly.
+
+```typescript
+env.isReadonly("VERSION"); // true
+```
+
+---
+
+## Working Directory
+
+### `cwd`
+
+```typescript
+get cwd(): string
+set cwd(path: string)
+```
+
+Get or set the current working directory. Setting `cwd` also updates the `PWD` variable.
+
+```typescript
+env.cwd = "/app";
+console.log(env.get("PWD")); // "/app"
+```
+
+---
+
+## Exit Code
+
+### `lastExitCode`
+
+```typescript
+get lastExitCode(): number
+set lastExitCode(code: number)
+```
+
+The exit code of the most recently executed command. Corresponds to the `$?` special variable.
+
+```typescript
+console.log(env.lastExitCode); // 0
+```
+
+---
+
+## Positional Parameters
+
+### `positionalArgs`
+
+```typescript
+get positionalArgs(): string[]
+set positionalArgs(args: string[])
+```
+
+The positional parameters (`$1`, `$2`, etc.). Set by the `set` builtin, function calls, and script execution.
+
+```typescript
+env.positionalArgs = ["arg1", "arg2", "arg3"];
+```
+
+---
+
+## Aliases
+
+### `setAlias(name, value)`
+
+```typescript
+setAlias(name: string, value: string): void
+```
+
+Define a shell alias.
+
+```typescript
+env.setAlias("ll", "ls -la");
+```
+
+### `getAlias(name)`
+
+```typescript
+getAlias(name: string): string | undefined
+```
+
+Get the expansion of an alias. Returns `undefined` if not defined.
+
+```typescript
+const expansion = env.getAlias("ll"); // "ls -la"
+```
+
+### `removeAlias(name)`
+
+```typescript
+removeAlias(name: string): void
+```
+
+Remove an alias.
+
+### `aliases()`
+
+```typescript
+aliases(): Map<string, string>
+```
+
+Get a copy of all defined aliases.
+
+```typescript
+const all = env.aliases();
+for (const [name, value] of all) {
+  console.log(`${name}='${value}'`);
+}
+```
+
+---
+
+## Functions
+
+### `setFunction(name, body)`
+
+```typescript
+setFunction(name: string, body: unknown): void
+```
+
+Store a shell function definition. The `body` is typically an AST node representing the function body.
+
+### `getFunction(name)`
+
+```typescript
+getFunction(name: string): unknown | undefined
+```
+
+Retrieve a stored function definition.
+
+### `removeFunction(name)`
+
+```typescript
+removeFunction(name: string): void
+```
+
+Remove a function definition.
+
+---
+
+## Shell Options
+
+Shell options control behavior like error handling (`errexit`), undefined variable checks (`nounset`), and debug tracing (`xtrace`).
+
+### `setOption(option)`
+
+```typescript
+setOption(option: string): void
+```
+
+Enable a shell option.
+
+```typescript
+env.setOption("errexit");  // equivalent to set -e
+env.setOption("nounset");  // equivalent to set -u
+```
+
+### `unsetOption(option)`
+
+```typescript
+unsetOption(option: string): void
+```
+
+Disable a shell option.
+
+```typescript
+env.unsetOption("xtrace");
+```
+
+### `hasOption(option)`
+
+```typescript
+hasOption(option: string): boolean
+```
+
+Check whether a shell option is enabled.
+
+```typescript
+if (env.hasOption("errexit")) {
+  // Shell will exit on first error
+}
+```
+
+### Common Options
+
+| Option | Short | Description |
+|---|---|---|
+| `errexit` | `-e` | Exit on first command failure |
+| `nounset` | `-u` | Treat unset variables as errors |
+| `xtrace` | `-x` | Print commands before execution |
+| `verbose` | `-v` | Print input lines as they are read |
+| `noclobber` | `-C` | Prevent output redirection from overwriting files |
+| `allexport` | `-a` | Export all variables on assignment |
+| `pipefail` | | Return the exit code of the last failing command in a pipeline |
+
+---
+
+## Subshell Forking
+
+### `fork()`
+
+```typescript
+fork(): Environment
+```
+
+Create a child environment for subshell execution. The child inherits:
+
+- All exported variables (as copies)
+- Current working directory
+- Last exit code
+- Shell name and options
+- Aliases (as copies)
+- Positional arguments (as copies)
+- Readonly markers (as copies)
+- PID and last background PID
+
+The child does **not** inherit non-exported variables. `SHLVL` is incremented by 1.
+
+Changes to the child environment do not affect the parent.
+
+```typescript
+const child = env.fork();
+child.set("CHILD_ONLY", "yes");
+env.get("CHILD_ONLY"); // undefined
+```
+
+---
+
+## Serialization
+
+### `toObject()`
+
+```typescript
+toObject(): Record<string, string>
+```
+
+Return all **exported** variables as a plain object.
+
+```typescript
+const exported = env.toObject();
+// { HOME: "/root", PATH: "/usr/bin:/bin", ... }
+```
+
+### `all()`
+
+```typescript
+all(): Map<string, string>
+```
+
+Return a copy of all variables (both exported and non-exported) as a `Map`.
+
+```typescript
+const allVars = env.all();
+for (const [key, value] of allVars) {
+  console.log(`${key}=${value}`);
+}
+```
+
+---
+
+## Special Variables
+
+### `getSpecial(name)`
+
+```typescript
+getSpecial(name: string): string | undefined
+```
+
+Resolve special shell variables that have dynamic values. These correspond to the shell's special parameters.
+
+| Name | Equivalent | Description |
+|---|---|---|
+| `?` | `$?` | Exit code of the last command |
+| `#` | `$#` | Number of positional parameters |
+| `@` | `$@` | All positional parameters (space-separated) |
+| `*` | `$*` | All positional parameters (joined by first char of `IFS`) |
+| `0` | `$0` | Shell name (`"faux-shell"`) |
+| `$` | `$$` | Process ID (always `1` in the virtual shell) |
+| `!` | `$!` | PID of last background command |
+| `-` | `$-` | Current shell option flags (e.g., `"eu"` for errexit+nounset) |
+| `RANDOM` | `$RANDOM` | Random integer between 0 and 32767 |
+| `LINENO` | `$LINENO` | Current line number (returns `"0"`) |
+| `SECONDS` | `$SECONDS` | Seconds since shell start (returns `"0"`) |
+| `BASHPID` | `$BASHPID` | Current process ID (same as `$$`) |
+| `1`, `2`, ... | `$1`, `$2`, ... | Positional parameters |
+
+```typescript
+env.positionalArgs = ["hello", "world"];
+
+env.getSpecial("?"); // "0"
+env.getSpecial("#"); // "2"
+env.getSpecial("@"); // "hello world"
+env.getSpecial("1"); // "hello"
+env.getSpecial("2"); // "world"
+env.getSpecial("$"); // "1"
+```
+
+:::note
+`$RANDOM` returns a new random value on each call. `$LINENO` and `$SECONDS` return `"0"` as they are not fully tracked in the virtual environment.
+:::

@@ -1,0 +1,107 @@
+---
+title: Introduction
+description: What faux-shell is, how it works, and why you would use it.
+---
+
+faux-shell is a virtual bash shell implemented entirely in JavaScript. It parses and executes shell commands against an in-memory virtual filesystem, producing the same `stdout`, `stderr`, and exit codes you would get from a real shell — without ever touching the host system.
+
+It runs on any JavaScript runtime: Cloudflare Workers, Deno, Bun, Node.js, and browsers.
+
+## Why a virtual shell?
+
+There are several scenarios where you need shell-like capabilities but cannot (or should not) use a real shell:
+
+### AI agent sandboxing
+
+Give LLMs a shell to work with without granting access to the real filesystem or network. An AI agent can `mkdir`, `grep`, pipe data, and manipulate files — all safely sandboxed in memory. The agent gets a familiar bash interface while you maintain full control over what exists and what happens.
+
+### Web-based terminals and playgrounds
+
+Build interactive terminals in the browser. Users can run real bash commands, see real output, and explore a virtual filesystem — no backend needed. Useful for product demos, interactive documentation, and developer tools.
+
+### Testing shell scripts
+
+Validate shell logic without touching the real filesystem. Seed the VFS with test fixtures, run your scripts, and assert on the output. No cleanup needed between test runs — just create a new `Shell` instance.
+
+### Education
+
+Teach bash in the browser. Students can experiment with pipes, redirects, file manipulation, and control flow in a safe environment where mistakes have no consequences.
+
+### Serverless environments
+
+Cloudflare Workers, Lambda@Edge, and other edge runtimes do not provide shell access. faux-shell gives you `grep`, `sed`, `awk`, `find`, and 100+ other commands anywhere JavaScript runs.
+
+## Architecture
+
+faux-shell is structured as a pipeline: **parser** produces an AST, the **executor** walks the AST and dispatches to **command handlers**, and all I/O flows through the **virtual filesystem** and **environment**.
+
+```
+Input string
+    |
+    v
+  Parser          @faux-shell/parser
+    |              Tokenizer -> AST
+    v
+  Executor        Walks the AST
+    |              Handles pipes, redirects, control flow
+    v
+  Commands         111 built-in command handlers
+    |              + your custom commands
+    v
+  VFS + Env        In-memory filesystem + environment variables
+    |
+    v
+  ShellResult      { stdout, stderr, exitCode }
+```
+
+### Parser (`@faux-shell/parser`)
+
+The parser is a standalone package that tokenizes shell input and produces an abstract syntax tree. It handles:
+
+- Simple commands and arguments
+- Pipelines (`|`, `|&`)
+- Lists (`&&`, `||`, `;`, `&`)
+- Redirects (`>`, `>>`, `<`, `2>`, `&>`, here-documents)
+- Subshells (`$(...)`, backticks, `(...)`)
+- Control flow (`if`/`elif`/`else`/`fi`, `for`/`do`/`done`, `while`, `until`, `case`/`esac`, `select`)
+- Functions (`function name { ... }`, `name() { ... }`)
+- Variable expansion, arithmetic expansion, brace expansion
+- Quoting (single, double, `$'...'`, `$"..."`)
+
+The parser is available separately as `@faux-shell/parser` if you only need AST generation.
+
+### Executor
+
+The executor walks the AST and orchestrates execution. It handles pipeline wiring (connecting stdout of one command to stdin of the next), redirect resolution, variable assignment, control flow evaluation, and subshell forking. The executor calls into the command registry to dispatch each individual command.
+
+### Command registry
+
+All 111 built-in commands are registered as `CommandHandler` objects. Each handler receives a `CommandContext` with access to arguments, stdin, stdout, stderr, the environment, and the virtual filesystem. You can register your own commands using the same interface.
+
+### Virtual filesystem
+
+The VFS is a complete in-memory filesystem supporting files, directories, symlinks, permissions (`chmod`), ownership (`chown`), glob matching, and recursive operations. You seed it with initial files when creating the shell, and all file operations during execution modify this in-memory state.
+
+### Environment
+
+The environment manages shell variables (including special variables like `$?`, `$#`, `$$`), exported variables, aliases, functions, shell options, and the working directory. It supports `fork()` for creating child environments in subshells.
+
+## Monorepo structure
+
+The project is organized as a Bun workspace monorepo:
+
+```
+faux-shell/
+  packages/
+    parser/     @faux-shell/parser — standalone shell parser
+    core/       faux-shell — the main library (depends on parser)
+    cli/        Interactive REPL for development
+    docs/       This documentation site
+```
+
+For most use cases you only need the `faux-shell` package, which re-exports the parser types and functions.
+
+## Next steps
+
+- [Install faux-shell](/guides/installation/) and add it to your project
+- [Follow the quick start](/guides/quick-start/) to run your first commands

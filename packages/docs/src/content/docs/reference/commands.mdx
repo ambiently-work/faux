@@ -1,0 +1,194 @@
+---
+title: "Commands"
+description: "Complete reference of all 111 built-in commands organized by category."
+---
+
+faux-shell ships with 111 built-in commands that faithfully implement bash semantics. All commands work with the in-memory virtual filesystem and environment -- no native bindings needed.
+
+:::tip
+Every command listed here is registered by default. Pass `builtins: false` to the `Shell` constructor to start with a clean slate, then register only the commands you need.
+:::
+
+---
+
+## Shell Mechanics
+
+Core shell builtins for output, navigation, variables, and control.
+
+| Command | Description | Key Flags |
+|---|---|---|
+| `echo` | Print arguments to stdout | `-n` (no newline), `-e` (interpret escapes), `-E` (disable escapes) |
+| `printf` | Formatted output (C-style format strings) | Format specifiers: `%s`, `%d`, `%f`, `%x`, `%o`, `%%`, `\n`, `\t` |
+| `cd` | Change working directory | `-` (previous directory), `~` (home) |
+| `pwd` | Print current working directory | |
+| `export` | Set and export environment variables | `-p` (print all), `-n` (unexport) |
+| `unset` | Remove variables or functions | `-f` (functions), `-v` (variables) |
+| `set` | Set shell options and positional parameters | `-e` (errexit), `-u` (nounset), `-x` (xtrace), `-o` (named option) |
+| `shopt` | Set/unset shell optional behavior | `-s` (set), `-u` (unset), `-p` (print) |
+| `declare` | Declare variables with attributes | `-x` (export), `-r` (readonly), `-i` (integer), `-a` (array), `-p` (print) |
+| `local` | Declare local variables in functions | Same as `declare` but scoped to function |
+| `readonly` | Mark variables as read-only | `-p` (print all readonly vars) |
+| `return` | Return from a function or sourced script | Takes optional exit code |
+| `exit` | Exit the shell with a status code | Takes optional exit code |
+| `source` / `.` | Execute commands from a file in the current shell | Reads file from VFS and executes in current environment |
+| `eval` | Evaluate arguments as a shell command | Concatenates args and executes |
+| `exec` | Replace shell with command, or manage redirections | Supports redirect syntax |
+| `command` | Run a command bypassing functions and aliases | `-v` (describe command), `-V` (verbose) |
+| `builtin` | Run a shell builtin, ignoring functions | |
+| `type` | Describe how a command name would be interpreted | `-t` (terse: alias/keyword/function/builtin/file), `-a` (all) |
+| `which` | Locate a command | |
+| `hash` | Manage command hash table | `-r` (reset) |
+| `enable` | Enable/disable builtins | `-n` (disable), `-a` (print all) |
+| `true` | Return success (exit code 0) | |
+| `false` | Return failure (exit code 1) | |
+| `:` | No-op (always succeeds) | |
+| `test` | Evaluate conditional expression | `-f` (file), `-d` (dir), `-e` (exists), `-z` (empty string), `-n` (non-empty), `-eq`, `-lt`, `-gt`, etc. |
+| `[` | Alias for `test` (requires closing `]`) | Same as `test` |
+| `[[` | Extended conditional expression | Supports pattern matching, regex `=~`, logical `&&` / `\|\|` |
+
+---
+
+## File Operations
+
+Create, read, modify, and inspect files and directories in the virtual filesystem.
+
+| Command | Description | Key Flags |
+|---|---|---|
+| `cat` | Concatenate and print files | `-n` (number lines), `-b` (number non-blank), `-s` (squeeze blanks), `-E` (show ends), `-T` (show tabs) |
+| `ls` | List directory contents | `-l` (long format), `-a` (all including dotfiles), `-A` (almost all), `-1` (one per line), `-R` (recursive), `-r` (reverse), `-t` (sort by time), `-S` (sort by size), `-h` (human-readable), `-d` (directory itself), `-F` (classify) |
+| `mkdir` | Create directories | `-p` (create parents), `-m` (set mode) |
+| `rm` | Remove files and directories | `-r` / `-R` (recursive), `-f` (force) |
+| `rmdir` | Remove empty directories | |
+| `cp` | Copy files and directories | `-r` / `-R` (recursive), `-f` (force) |
+| `mv` | Move/rename files and directories | `-f` (force), `-n` (no overwrite), `-v` (verbose) |
+| `touch` | Create files or update timestamps | `-a`, `-m`, `-c` (accepted but simplified in VFS) |
+| `chmod` | Change file permissions | Supports octal (`755`) and symbolic (`u+x`, `go-w`, `a=r`) notation |
+| `chown` | Change file owner and group | `uid:gid` syntax |
+| `ln` | Create links (always creates symlinks in VFS) | `-s` (symbolic), `-f` (force) |
+| `readlink` | Print the target of a symbolic link | `-f` (canonicalize) |
+| `basename` | Strip directory and suffix from filenames | `-a` (multiple), `-z` (zero-terminated), `-s` (suffix) |
+| `dirname` | Strip last component from file name | `-z` (zero-terminated) |
+| `realpath` | Print the resolved absolute path | `-q` (quiet), `-s` (no symlinks) |
+| `stat` | Display file status | `-L` (follow symlinks), `-l` (no follow) |
+| `file` | Determine file type | Infers type from content/extension |
+| `tee` | Read stdin, write to stdout and files | `-a` (append) |
+
+---
+
+## Text Processing
+
+Transform, filter, and analyze text data.
+
+| Command | Description | Key Flags |
+|---|---|---|
+| `head` | Output the first part of files | `-n` (line count), `-c` (byte count) |
+| `tail` | Output the last part of files | `-n` (line count), `-c` (byte count) |
+| `wc` | Word, line, and byte counts | `-l` (lines), `-w` (words), `-c` (bytes), `-m` (chars) |
+| `grep` | Search for patterns in text | `-i` (case insensitive), `-v` (invert), `-c` (count), `-n` (line numbers), `-l` (files only), `-r` (recursive), `-E` (extended regex), `-F` (fixed string), `-w` (whole word), `-x` (whole line), `-q` (quiet), `-o` (only matching), `-H` (with filename), `-h` (no filename) |
+| `sed` | Stream editor for text transformation | Supports `s/pattern/replacement/flags`, `d` (delete), `p` (print), `a` (append), `i` (insert), `c` (change), address ranges |
+| `awk` | Pattern scanning and text processing | `-F` (field separator), `-v` (variable assignment). Supports `BEGIN`/`END` blocks, field access (`$1`, `$NF`), regex patterns, range patterns, arrays, built-in functions (`length`, `substr`, `split`, `printf`, `sprintf`, `gsub`, `sub`, `tolower`, `toupper`, `index`, `match`) |
+| `cut` | Remove sections from lines | `-d` (delimiter), `-f` (fields), `-c` (characters) |
+| `paste` | Merge lines of files | `-d` (delimiter), `-s` (serial) |
+| `tr` | Translate or delete characters | `-d` (delete), `-s` (squeeze), `-c` (complement). Supports ranges (`a-z`), character classes (`[:upper:]`, `[:lower:]`, `[:digit:]`, etc.) |
+| `sort` | Sort lines of text | `-r` (reverse), `-n` (numeric), `-u` (unique), `-k` (key field), `-t` (separator), `-f` (fold case), `-b` (ignore leading blanks) |
+| `uniq` | Report or omit repeated lines | `-c` (count), `-d` (duplicates only), `-u` (unique only), `-i` (case insensitive) |
+| `diff` | Compare files line by line | `-u` (unified format) |
+| `comm` | Compare two sorted files line by line | `-1` (suppress column 1), `-2` (suppress column 2), `-3` (suppress column 3) |
+| `join` | Join lines of two files on a common field | `-t` (delimiter), `-1` (field from file 1), `-2` (field from file 2) |
+| `fold` | Wrap lines to a specified width | `-w` (width), `-s` (break at spaces) |
+| `fmt` | Simple text formatter | `-w` (width) |
+| `expand` | Convert tabs to spaces | `-t` (tab width) |
+| `unexpand` | Convert spaces to tabs | `-t` (tab width) |
+| `nl` | Number lines of files | `-b` (body numbering: `a` all, `t` non-empty), `-s` (separator) |
+| `rev` | Reverse lines character by character | |
+| `tac` | Concatenate and print files in reverse (line by line) | |
+| `column` | Format input into columns | `-t` (table mode), `-s` (separator) |
+| `strings` | Print printable character sequences | `-n` (minimum length) |
+
+---
+
+## Search
+
+Find files and process results.
+
+| Command | Description | Key Flags |
+|---|---|---|
+| `find` | Search for files in the virtual filesystem | `-name` (glob pattern), `-type` (`f`/`d`/`l`), `-maxdepth`, `-mindepth`, `-exec`, `-print`, `-empty`, `-not` / `!`, `(` `)` grouping |
+| `xargs` | Build and execute commands from stdin | `-n` (max args per command), `-d` (delimiter), `-0` (null delimiter), `-I` (replace string) |
+
+---
+
+## Environment & Job Control
+
+Manage the shell environment, read input, and control jobs.
+
+| Command | Description | Key Flags |
+|---|---|---|
+| `env` | Run a command in a modified environment, or print all variables | |
+| `printenv` | Print environment variables | |
+| `read` | Read a line of input into variables | `-r` (raw, no backslash escaping), `-p` (prompt), `-a` (array), `-d` (delimiter), `-n` (char count), `-s` (silent), `-t` (timeout) |
+| `mapfile` / `readarray` | Read lines from stdin into an array variable | `-t` (trim trailing newline), `-n` (max count), `-s` (skip count) |
+| `getopts` | Parse command-line options in scripts | Standard `optstring` syntax with `:` for required arguments |
+| `shift` | Shift positional parameters | Takes optional count (default 1) |
+| `let` | Evaluate arithmetic expressions | Supports `+`, `-`, `*`, `/`, `%`, `**`, comparison operators |
+| `alias` | Define or display aliases | `-p` (print) |
+| `unalias` | Remove aliases | `-a` (remove all) |
+| `trap` | Set signal handlers | `-l` (list signals), `-p` (print traps). Supports `EXIT`, `ERR`, `DEBUG`, `RETURN` and standard signal names |
+| `wait` | Wait for background jobs | |
+| `jobs` | List active jobs | `-l` (long format) |
+| `fg` | Move job to foreground | |
+| `bg` | Move job to background | |
+| `kill` | Send signal to a process/job | `-l` (list signals), `-s` (signal name), `-9`, `-15`, etc. |
+| `suspend` | Suspend the shell | |
+| `times` | Print accumulated user and system times | |
+| `ulimit` | Get/set resource limits | `-a` (all), `-n` (open files), `-s` (stack size), `-f` (file size), etc. |
+| `umask` | Set file creation mask | `-S` (symbolic output) |
+
+---
+
+## I/O & Utilities
+
+Date/time, math, encoding, system info, and miscellaneous tools.
+
+| Command | Description | Key Flags |
+|---|---|---|
+| `date` | Display or format date/time | `+FORMAT` (strftime-style), `-u` (UTC), `-d` (parse date string). Format: `%Y`, `%m`, `%d`, `%H`, `%M`, `%S`, `%A`, `%B`, `%s` (epoch), etc. |
+| `sleep` | Pause for a specified duration | Supports seconds, `m` (minutes), `h` (hours), `d` (days) suffixes |
+| `seq` | Print a sequence of numbers | `-s` (separator), `-w` (equal width padding). `seq LAST`, `seq FIRST LAST`, `seq FIRST INCREMENT LAST` |
+| `yes` | Output a string repeatedly (capped at 1000 lines) | Default output is `"y"` |
+| `expr` | Evaluate expressions | Arithmetic (`+`, `-`, `*`, `/`, `%`), comparison, string operations (`match`, `substr`, `length`, `index`) |
+| `bc` | Arbitrary precision calculator | `-l` (math library), `-q` (quiet). Supports `scale`, variables, `if`/`while`/`for`, functions |
+| `mktemp` | Create a temporary file or directory | `-d` (directory), `-t` (use template). Template: `tmp.XXXXXXXXXX` |
+| `base64` | Base64 encode/decode | `-d` (decode) |
+| `xxd` | Hex dump and reverse | `-r` (reverse), `-c` (columns) |
+| `du` | Estimate file space usage | `-s` (summary), `-h` (human-readable) |
+| `df` | Report filesystem disk space usage | `-h` (human-readable) |
+| `tree` | Display directory tree | `-L` (max depth), `-d` (directories only) |
+| `id` | Print user and group IDs | `-u` (user), `-g` (group), `-G` (groups), `-n` (name) |
+| `whoami` | Print effective user name | |
+| `hostname` | Print or set hostname | `-s` (short), `-f` (FQDN) |
+| `uname` | Print system information | `-a` (all), `-s` (kernel name), `-n` (node name), `-r` (release), `-m` (machine), `-o` (OS) |
+| `arch` | Print machine architecture | Returns `x86_64` |
+| `nproc` | Print number of processing units | Reads from `NPROC` env var, defaults to `4` |
+| `uptime` | Show system uptime | |
+| `cal` | Display a calendar | `cal [month] [year]` |
+| `md5sum` | Compute MD5 checksums | `-c` (check mode, limited). Reads from stdin or files |
+| `sha256sum` | Compute SHA-256 checksums | `-c` (check mode, limited). Reads from stdin or files |
+
+:::note
+`md5sum` and `sha256sum` use a simplified hash implementation suitable for testing and simulation, not cryptographic purposes.
+:::
+
+---
+
+## Command Count by Category
+
+| Category | Count |
+|---|---|
+| Shell Mechanics | 28 |
+| File Operations | 18 |
+| Text Processing | 23 |
+| Search | 2 |
+| Environment & Job Control | 18 |
+| I/O & Utilities | 22 |
+| **Total** | **111** |

@@ -1,0 +1,240 @@
+---
+title: "Deployment"
+description: "How to deploy apps using faux-shell on Cloudflare Workers, Deno Deploy, Bun, and in the browser."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+faux-shell is pure JavaScript with zero dependencies and no native bindings. It runs on any JavaScript runtime — edge functions, servers, or browsers.
+
+## Cloudflare Workers
+
+```typescript
+import { Shell } from "faux-shell";
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const shell = new Shell({
+      fs: {
+        "/etc/motd": "Welcome to the edge shell",
+      },
+    });
+
+    const { command } = await request.json<{ command: string }>();
+    const result = await shell.run(command);
+
+    return Response.json({
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+    });
+  },
+};
+```
+
+:::tip
+For persistent state across requests, store the shell instance outside the fetch handler. Each Worker isolate keeps its own memory, so the VFS persists for the lifetime of the isolate.
+:::
+
+### Persistent shell per session
+
+```typescript
+import { Shell } from "faux-shell";
+
+const sessions = new Map<string, Shell>();
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const sessionId = url.searchParams.get("session") ?? "default";
+
+    if (!sessions.has(sessionId)) {
+      sessions.set(sessionId, new Shell({
+        fs: { "/etc/motd": "Welcome" },
+        cwd: "/home/user",
+      }));
+    }
+
+    const shell = sessions.get(sessionId)!;
+    const { command } = await request.json<{ command: string }>();
+    const result = await shell.run(command);
+
+    return Response.json(result);
+  },
+};
+```
+
+## Deno Deploy
+
+```typescript
+import { Shell } from "faux-shell";
+
+Deno.serve(async (req) => {
+  const shell = new Shell({
+    fs: {
+      "/data/config.json": '{"env": "production"}',
+    },
+  });
+
+  const { command } = await req.json();
+  const result = await shell.run(command);
+
+  return new Response(JSON.stringify(result), {
+    headers: { "content-type": "application/json" },
+  });
+});
+```
+
+## Bun
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  fs: {
+    "/data/config.json": '{"env": "production"}',
+  },
+});
+
+Bun.serve({
+  port: 3000,
+  async fetch(req) {
+    const { command } = await req.json<{ command: string }>();
+    const result = await shell.run(command);
+    return Response.json(result);
+  },
+});
+```
+
+## Browser
+
+faux-shell works in any browser with ESM support. Use your bundler of choice.
+
+<Tabs>
+<TabItem label="Vite">
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell();
+
+const input = document.querySelector<HTMLInputElement>("#command-input")!;
+const output = document.querySelector<HTMLPreElement>("#output")!;
+
+input.addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter") return;
+
+  const result = await shell.run(input.value);
+  output.textContent += `$ ${input.value}\n${result.stdout}${result.stderr}`;
+  input.value = "";
+});
+```
+</TabItem>
+<TabItem label="Script tag (ESM)">
+```html
+<script type="module">
+  import { Shell } from "https://esm.sh/faux-shell";
+
+  const shell = new Shell();
+  const result = await shell.run('echo "hello from the browser"');
+  document.body.textContent = result.stdout;
+</script>
+```
+</TabItem>
+</Tabs>
+
+:::note
+The shell runs entirely in the main thread. For long-running scripts, consider running it in a Web Worker to keep the UI responsive.
+:::
+
+## Bundle size
+
+faux-shell is designed to be lightweight:
+
+| What              | Size           |
+| ----------------- | -------------- |
+| Full bundle       | ~50KB gzipped  |
+| ESM only          | Yes            |
+| Tree-shakeable    | Yes            |
+| WASM required     | No (opt-in)    |
+| Dependencies      | Zero           |
+
+### Tree-shaking
+
+If your bundler supports tree-shaking (Vite, esbuild, Rollup), unused built-in commands are eliminated from the final bundle. You can also disable all builtins and register only what you need:
+
+```typescript
+import { Shell } from "faux-shell";
+
+const shell = new Shell({
+  builtins: false, // disable all 111 built-in commands
+  commands: [
+    // register only what you need
+    myEchoCommand,
+    myCatCommand,
+  ],
+});
+```
+
+### Optional WASM parser
+
+The default parser is pure JavaScript. For workloads that parse a very high volume of shell input, an optional WASM-based parser is available:
+
+```typescript
+import { Shell, useWasmParser } from "faux-shell";
+
+const parser = await useWasmParser();
+const shell = new Shell({ parser });
+```
+
+The WASM parser is not required — the JS parser handles all supported syntax. It is strictly an opt-in performance optimization.
+
+## Architecture considerations
+
+### One shell per user/session
+
+Each `Shell` instance has its own isolated VFS, environment, and command registry. Create one per user session to keep state separated.
+
+```typescript
+function createUserShell(userId: string, files: Record<string, string>) {
+  return new Shell({
+    fs: files,
+    env: {
+      USER: userId,
+      HOME: `/home/${userId}`,
+    },
+    cwd: `/home/${userId}`,
+  });
+}
+```
+
+### Extracting state
+
+Use `snapshot()` to serialize the filesystem state and `environment` to read variables. This is useful for persisting state between deployments or across serverless invocations.
+
+```typescript
+// After running commands
+const files = shell.snapshot();
+const env = shell.environment;
+
+// Store files and env somewhere (KV, database, etc.)
+await kv.put(`shell:${sessionId}:files`, JSON.stringify(files));
+
+// Restore later
+const savedFiles = JSON.parse(await kv.get(`shell:${sessionId}:files`));
+const restored = new Shell({ fs: savedFiles });
+```
+
+### Security
+
+:::caution
+faux-shell executes commands in-memory and has no access to the host filesystem or process. However, if you register custom commands that perform real I/O (network requests, database queries), make sure to validate and sanitize user input before execution.
+:::
+
+Limit what users can do by controlling which commands are available:
+
+```typescript
+const shell = new Shell({
+  builtins: false,
+  commands: [safeEcho, safeCat, safeLs], // allowlist only
+});
+```

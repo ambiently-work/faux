@@ -1,0 +1,19 @@
+{
+	"name": "@faux-shell/wasm",
+	"version": "0.1.0",
+	"type": "module",
+	"files": ["pkg", "src/index.ts"],
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts",
+		"./wasm": "./pkg/faux_shell_wasm_bg.wasm"
+	},
+	"scripts": {
+		"build": "wasm-pack build --target web --out-dir pkg",
+		"build:node": "wasm-pack build --target nodejs --out-dir pkg-node"
+	},
+	"peerDependencies": {
+		"faux-shell": "workspace:*"
+	}
+}

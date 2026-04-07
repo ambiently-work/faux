@@ -1,0 +1,350 @@
+---
+title: "Cloudflare Worker"
+description: "Deploy a shell API on Cloudflare Workers with persistent state via KV."
+---
+
+This example shows how to run faux-shell inside a Cloudflare Worker, expose a REST API for executing commands, and persist filesystem state across requests using Workers KV.
+
+---
+
+## Basic Worker
+
+A minimal Worker that accepts shell commands via POST and returns the result.
+
+```typescript
+// src/index.ts
+import { Shell } from "faux-shell";
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("POST a JSON body with { \"command\": \"...\" }", {
+        status: 405,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+
+    const body = await request.json<{ command: string }>();
+    if (!body.command) {
+      return new Response(JSON.stringify({ error: "Missing command" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const shell = new Shell({
+      env: { WORKER: "true", CF_RAY: request.headers.get("cf-ray") ?? "" },
+    });
+
+    const result = await shell.run(body.command);
+
+    return new Response(
+      JSON.stringify({
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+      }),
+      {
+        status: result.exitCode === 0 ? 200 : 422,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+};
+```
+
+Test it with curl:
+
+```bash
+curl -X POST https://your-worker.example.com \
+  -H "Content-Type: application/json" \
+  -d '{"command": "echo hello | tr a-z A-Z"}'
+
+# {"stdout":"HELLO\n","stderr":"","exitCode":0}
+```
+
+---
+
+## Persistent State with KV
+
+Use Workers KV to save and restore the filesystem between requests. Each session gets its own isolated shell state.
+
+```typescript
+// src/index.ts
+import { Shell } from "faux-shell";
+
+interface Env {
+  SHELL_STATE: KVNamespace;
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    const body = await request.json<{ command: string; session?: string }>();
+    if (!body.command) {
+      return new Response(JSON.stringify({ error: "Missing command" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const sessionId = body.session ?? "default";
+    const kvKey = `session:${sessionId}`;
+
+    // Restore state from KV
+    const savedState = await env.SHELL_STATE.get(kvKey, "json") as {
+      fs?: Record<string, string>;
+      env?: Record<string, string>;
+      cwd?: string;
+    } | null;
+
+    const shell = new Shell({
+      fs: savedState?.fs,
+      env: savedState?.env,
+      cwd: savedState?.cwd ?? "/",
+    });
+
+    // Execute the command
+    const result = await shell.run(body.command);
+
+    // Save state back to KV (1 hour TTL)
+    await env.SHELL_STATE.put(
+      kvKey,
+      JSON.stringify({
+        fs: shell.snapshot(),
+        env: shell.environment.toObject(),
+        cwd: shell.environment.cwd,
+      }),
+      { expirationTtl: 3600 }
+    );
+
+    return new Response(
+      JSON.stringify({
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        session: sessionId,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  },
+};
+```
+
+Now state persists across requests for the same session:
+
+```bash
+# First request — create a file
+curl -X POST https://your-worker.example.com \
+  -H "Content-Type: application/json" \
+  -d '{"command": "echo hello > /tmp/greeting.txt", "session": "user-123"}'
+
+# Second request — read it back
+curl -X POST https://your-worker.example.com \
+  -H "Content-Type: application/json" \
+  -d '{"command": "cat /tmp/greeting.txt", "session": "user-123"}'
+
+# {"stdout":"hello\n","stderr":"","exitCode":0,"session":"user-123"}
+```
+
+---
+
+## Security: Command Allowlists
+
+In production, you should restrict which commands users can execute. Use the `builtins: false` option and register only safe commands, or validate commands before execution.
+
+```typescript
+import { Shell } from "faux-shell";
+
+const ALLOWED_COMMANDS = new Set([
+  "echo", "cat", "grep", "sed", "awk", "cut", "sort", "uniq",
+  "head", "tail", "wc", "tr", "find", "ls", "pwd",
+]);
+
+// Approach 1: Validate before execution
+function isCommandAllowed(command: string): boolean {
+  // Extract the first word (command name) from each pipeline segment
+  const segments = command.split("|").map((s) => s.trim());
+  return segments.every((segment) => {
+    const firstWord = segment.split(/\s+/)[0];
+    return ALLOWED_COMMANDS.has(firstWord);
+  });
+}
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const body = await request.json<{ command: string }>();
+
+    if (!isCommandAllowed(body.command)) {
+      return new Response(
+        JSON.stringify({ error: "Command not allowed" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const shell = new Shell();
+    const result = await shell.run(body.command);
+
+    return new Response(JSON.stringify(result), {
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+};
+```
+
+```typescript
+// Approach 2: Register only allowed builtins
+import { Shell, type CommandHandler } from "faux-shell";
+
+function createRestrictedShell(allowlist: string[]): Shell {
+  // Create a full shell, extract allowed commands, build restricted shell
+  const fullShell = new Shell();
+  const allCommands = fullShell.commands;
+
+  const shell = new Shell({ builtins: false });
+
+  // Re-register only the allowed builtins
+  const sourceShell = new Shell();
+  for (const name of allowlist) {
+    if (allCommands.includes(name)) {
+      // Use run() to test — the restricted shell won't have the command
+      // Instead, register custom safe wrappers
+    }
+  }
+
+  return shell;
+}
+```
+
+:::caution
+Even with an allowlist, be careful with commands that can read arbitrary files (`cat`, `grep -r`) or write files (`tee`, redirection). Consider pre-populating the VFS with only the data you want exposed and avoid restoring user-supplied filesystem state without validation.
+:::
+
+---
+
+## Timeout Protection
+
+Protect against commands that run too long (e.g., infinite loops, `yes`, large `find` operations).
+
+```typescript
+async function runWithTimeout(
+  shell: Shell,
+  command: string,
+  timeoutMs: number = 5000
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const result = await Promise.race([
+      shell.run(command),
+      new Promise<never>((_, reject) => {
+        controller.signal.addEventListener("abort", () =>
+          reject(new Error("Command timed out"))
+        );
+      }),
+    ]);
+    return result;
+  } catch (error) {
+    return {
+      stdout: "",
+      stderr: `Error: command exceeded ${timeoutMs}ms timeout\n`,
+      exitCode: 124,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+```
+
+---
+
+## Wrangler Configuration
+
+```toml
+# wrangler.toml
+name = "shell-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[kv_namespaces]]
+binding = "SHELL_STATE"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+```
+
+Create the KV namespace:
+
+```bash
+wrangler kv namespace create "SHELL_STATE"
+wrangler kv namespace create "SHELL_STATE" --preview
+```
+
+Deploy:
+
+```bash
+wrangler deploy
+```
+
+---
+
+## Multi-Command Sessions
+
+For a more interactive experience, accept an array of commands and return results for each.
+
+```typescript
+import { Shell } from "faux-shell";
+
+interface BatchRequest {
+  commands: string[];
+  session?: string;
+}
+
+interface CommandResult {
+  command: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const body = await request.json<BatchRequest>();
+
+    const shell = new Shell();
+    const results: CommandResult[] = [];
+
+    for (const command of body.commands) {
+      const result = await shell.run(command);
+      results.push({
+        command,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+      });
+
+      // Stop on first error (like set -e)
+      if (result.exitCode !== 0) break;
+    }
+
+    return new Response(JSON.stringify({ results }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+};
+```
+
+```bash
+curl -X POST https://your-worker.example.com \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commands": [
+      "mkdir -p /app",
+      "echo \"hello\" > /app/data.txt",
+      "cat /app/data.txt | tr a-z A-Z"
+    ]
+  }'
+```

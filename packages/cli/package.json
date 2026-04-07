@@ -1,0 +1,16 @@
+{
+  "name": "@faux-shell/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "faux-shell": "./src/repl.ts"
+  },
+  "dependencies": {
+    "@biomejs/js-api": "^4.0.0",
+    "@biomejs/wasm-nodejs": "^2.4.10",
+    "faux-shell": "workspace:*"
+  },
+  "scripts": {
+    "start": "bun run src/repl.ts"
+  }
+}

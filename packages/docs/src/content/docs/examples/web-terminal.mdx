@@ -1,0 +1,658 @@
+---
+title: "Web Terminal"
+description: "Build a browser-based terminal UI with faux-shell, complete with command history and custom commands."
+---
+
+This example shows how to build a terminal emulator in the browser using faux-shell. We cover two approaches: a minimal DOM-based terminal and a polished version using xterm.js.
+
+---
+
+## Minimal Terminal (No Dependencies)
+
+A self-contained terminal using plain HTML, CSS, and JavaScript. Works with a bundler or a CDN import. All output is rendered using safe DOM methods (`textContent`, `createElement`) to avoid XSS risks.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>faux-shell Terminal</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #terminal {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #terminal .output { white-space: pre-wrap; word-break: break-all; }
+    #terminal .stdout { color: #cdd6f4; }
+    #terminal .stderr { color: #f38ba8; }
+    #terminal .prompt { color: #a6e3a1; }
+    #terminal .input-text { color: #89b4fa; }
+
+    #input-line {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: #181825;
+      border-top: 1px solid #313244;
+    }
+
+    #input-line .prompt {
+      color: #a6e3a1;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+
+    #input-line input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #cdd6f4;
+      font-family: inherit;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <div id="input-line">
+    <span class="prompt" id="prompt-text">root@faux-shell:/$</span>
+    <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false">
+  </div>
+
+  <script type="module">
+    import { Shell } from "https://esm.sh/faux-shell";
+
+    const shell = new Shell({
+      env: { USER: "guest", HOSTNAME: "browser" },
+    });
+
+    const terminal = document.getElementById("terminal");
+    const input = document.getElementById("command-input");
+    const promptText = document.getElementById("prompt-text");
+
+    // Command history
+    const history = [];
+    let historyIndex = -1;
+
+    function getPrompt() {
+      const user = shell.environment.get("USER") ?? "guest";
+      const host = shell.environment.get("HOSTNAME") ?? "faux-shell";
+      const cwd = shell.environment.cwd;
+      const home = shell.environment.get("HOME") ?? "/root";
+      const displayCwd = cwd === home ? "~" : cwd;
+      return `${user}@${host}:${displayCwd}$`;
+    }
+
+    // Safely render a prompt + command line using DOM methods
+    function appendCommandLine(promptStr, commandStr) {
+      const div = document.createElement("div");
+      div.className = "output";
+
+      const promptSpan = document.createElement("span");
+      promptSpan.className = "prompt";
+      promptSpan.textContent = promptStr + " ";
+      div.appendChild(promptSpan);
+
+      const cmdSpan = document.createElement("span");
+      cmdSpan.className = "input-text";
+      cmdSpan.textContent = commandStr;
+      div.appendChild(cmdSpan);
+
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // Safely render stdout/stderr using textContent (no injection)
+    function appendOutput(text, className) {
+      if (!text) return;
+      const div = document.createElement("div");
+      div.className = "output";
+      const span = document.createElement("span");
+      span.className = className;
+      span.textContent = text;
+      div.appendChild(span);
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function updatePrompt() {
+      promptText.textContent = getPrompt() + " ";
+    }
+
+    async function executeCommand(command) {
+      appendCommandLine(getPrompt(), command);
+
+      if (command.trim() === "") return;
+
+      history.push(command);
+      historyIndex = history.length;
+
+      // Handle "clear" locally
+      if (command.trim() === "clear") {
+        terminal.textContent = "";
+        return;
+      }
+
+      const result = await shell.run(command);
+
+      appendOutput(result.stdout, "stdout");
+      appendOutput(result.stderr, "stderr");
+
+      updatePrompt();
+    }
+
+    // Handle input
+    input.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") {
+        const command = input.value;
+        input.value = "";
+        await executeCommand(command);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (historyIndex > 0) {
+          historyIndex--;
+          input.value = history[historyIndex];
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (historyIndex < history.length - 1) {
+          historyIndex++;
+          input.value = history[historyIndex];
+        } else {
+          historyIndex = history.length;
+          input.value = "";
+        }
+      }
+    });
+
+    // Initial prompt
+    updatePrompt();
+    appendOutput('Welcome to faux-shell. Type "help" for available commands.', "stdout");
+
+    // Register a "help" command
+    shell.register({
+      name: "help",
+      execute(ctx) {
+        ctx.stdout.writeln("Available commands: " + shell.commands.sort().join(", "));
+        ctx.stdout.writeln("");
+        ctx.stdout.writeln('Type any bash command. Try: ls, echo "hello", cat, grep, find, etc.');
+        return 0;
+      },
+    });
+  </script>
+</body>
+</html>
+```
+
+---
+
+## Using a Bundler
+
+If you are using a bundler (Vite, esbuild, webpack), install faux-shell as a dependency:
+
+```bash
+bun add faux-shell
+```
+
+Then import it normally:
+
+```typescript
+import { Shell } from "faux-shell";
+```
+
+The library is pure ESM with no Node.js APIs, so it works in any browser bundler without polyfills.
+
+:::tip
+faux-shell is around 50KB gzipped with zero dependencies. It loads synchronously (no WASM init), so there is zero startup delay.
+:::
+
+---
+
+## xterm.js Integration
+
+For a full terminal experience with proper ANSI handling, cursor movement, and copy/paste, use [xterm.js](https://xtermjs.org/).
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>faux-shell + xterm.js</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm/css/xterm.min.css">
+  <style>
+    body { margin: 0; background: #000; height: 100vh; }
+    #terminal { height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+
+  <script type="module">
+    import { Shell } from "https://esm.sh/faux-shell";
+    import { Terminal } from "https://esm.sh/@xterm/xterm";
+    import { FitAddon } from "https://esm.sh/@xterm/addon-fit";
+
+    const shell = new Shell({
+      env: { USER: "guest", HOSTNAME: "web-shell", TERM: "xterm-256color" },
+      fs: {
+        "/home/guest/readme.txt": "Welcome to faux-shell in the browser!\n",
+      },
+      cwd: "/home/guest",
+    });
+
+    const term = new Terminal({
+      theme: {
+        background: "#1e1e2e",
+        foreground: "#cdd6f4",
+        cursor: "#f5e0dc",
+        selectionBackground: "#585b70",
+      },
+      fontFamily: '"Cascadia Code", "Fira Code", monospace',
+      fontSize: 14,
+      cursorBlink: true,
+    });
+
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById("terminal"));
+    fitAddon.fit();
+    window.addEventListener("resize", () => fitAddon.fit());
+
+    // State
+    let currentLine = "";
+    const history = [];
+    let historyIndex = -1;
+
+    function getPrompt() {
+      const user = shell.environment.get("USER") ?? "guest";
+      const host = shell.environment.get("HOSTNAME") ?? "web-shell";
+      const cwd = shell.environment.cwd;
+      const home = shell.environment.get("HOME") ?? "/root";
+      const displayCwd = cwd.startsWith(home) && cwd !== "/"
+        ? "~" + cwd.slice(home.length)
+        : cwd;
+      return `\x1b[32m${user}@${host}\x1b[0m:\x1b[34m${displayCwd}\x1b[0m$ `;
+    }
+
+    function writePrompt() {
+      term.write(getPrompt());
+    }
+
+    async function handleCommand(command) {
+      if (command.trim() === "") {
+        writePrompt();
+        return;
+      }
+
+      history.push(command);
+      historyIndex = history.length;
+
+      if (command.trim() === "clear") {
+        term.clear();
+        writePrompt();
+        return;
+      }
+
+      const result = await shell.run(command);
+
+      if (result.stdout) {
+        // Convert \n to \r\n for xterm
+        term.write(result.stdout.replace(/\n/g, "\r\n"));
+      }
+      if (result.stderr) {
+        term.write(`\x1b[31m${result.stderr.replace(/\n/g, "\r\n")}\x1b[0m`);
+      }
+
+      writePrompt();
+    }
+
+    // Handle keyboard input
+    term.onKey(({ key, domEvent }) => {
+      const code = domEvent.keyCode;
+
+      if (code === 13) {
+        // Enter
+        term.write("\r\n");
+        const cmd = currentLine;
+        currentLine = "";
+        handleCommand(cmd);
+      } else if (code === 8) {
+        // Backspace
+        if (currentLine.length > 0) {
+          currentLine = currentLine.slice(0, -1);
+          term.write("\b \b");
+        }
+      } else if (code === 38) {
+        // Arrow Up
+        if (historyIndex > 0) {
+          while (currentLine.length > 0) {
+            term.write("\b \b");
+            currentLine = currentLine.slice(0, -1);
+          }
+          historyIndex--;
+          currentLine = history[historyIndex];
+          term.write(currentLine);
+        }
+      } else if (code === 40) {
+        // Arrow Down
+        while (currentLine.length > 0) {
+          term.write("\b \b");
+          currentLine = currentLine.slice(0, -1);
+        }
+        if (historyIndex < history.length - 1) {
+          historyIndex++;
+          currentLine = history[historyIndex];
+          term.write(currentLine);
+        } else {
+          historyIndex = history.length;
+        }
+      } else if (domEvent.ctrlKey && code === 67) {
+        // Ctrl+C
+        term.write("^C\r\n");
+        currentLine = "";
+        writePrompt();
+      } else if (domEvent.ctrlKey && code === 76) {
+        // Ctrl+L
+        term.clear();
+        writePrompt();
+        term.write(currentLine);
+      } else if (key.length === 1 && !domEvent.ctrlKey && !domEvent.altKey) {
+        // Regular character
+        currentLine += key;
+        term.write(key);
+      }
+    });
+
+    // Welcome message and first prompt
+    term.writeln("faux-shell v1.0 -- 111 bash commands in the browser");
+    term.writeln('Type "help" for a list of commands.\r\n');
+    writePrompt();
+
+    // Register help command
+    shell.register({
+      name: "help",
+      execute(ctx) {
+        const cmds = shell.commands.sort();
+        ctx.stdout.writeln("Available commands (" + cmds.length + "):");
+        ctx.stdout.writeln("");
+
+        // Print in columns
+        const colWidth = 14;
+        const cols = 6;
+        for (let i = 0; i < cmds.length; i += cols) {
+          const row = cmds.slice(i, i + cols)
+            .map((c) => c.padEnd(colWidth))
+            .join("");
+          ctx.stdout.writeln("  " + row);
+        }
+        return 0;
+      },
+    });
+  </script>
+</body>
+</html>
+```
+
+---
+
+## Adding Custom Web Commands
+
+Register commands that interact with browser APIs.
+
+```typescript
+// Command that fetches a URL (browser-only)
+shell.register({
+  name: "fetch",
+  async execute(ctx) {
+    if (ctx.args.length === 0) {
+      ctx.stderr.writeln("fetch: usage: fetch <url>");
+      return 1;
+    }
+
+    const url = ctx.args[0];
+    try {
+      const response = await globalThis.fetch(url);
+      const text = await response.text();
+      ctx.stdout.write(text);
+      if (!text.endsWith("\n")) ctx.stdout.write("\n");
+      return response.ok ? 0 : 1;
+    } catch (error) {
+      ctx.stderr.writeln(`fetch: ${error}`);
+      return 1;
+    }
+  },
+});
+
+// Command that reads from localStorage
+shell.register({
+  name: "localstore",
+  execute(ctx) {
+    const [action, key, ...rest] = ctx.args;
+
+    switch (action) {
+      case "get": {
+        const value = localStorage.getItem(key);
+        if (value !== null) {
+          ctx.stdout.writeln(value);
+        } else {
+          ctx.stderr.writeln(`localstore: key "${key}" not found`);
+          return 1;
+        }
+        return 0;
+      }
+      case "set": {
+        localStorage.setItem(key, rest.join(" "));
+        return 0;
+      }
+      case "rm": {
+        localStorage.removeItem(key);
+        return 0;
+      }
+      case "list": {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k !== null) ctx.stdout.writeln(k);
+        }
+        return 0;
+      }
+      default:
+        ctx.stderr.writeln("localstore: usage: localstore get|set|rm|list <key> [value]");
+        return 1;
+    }
+  },
+});
+
+// Command that copies to clipboard
+shell.register({
+  name: "pbcopy",
+  async execute(ctx) {
+    const text = ctx.stdin || ctx.args.join(" ");
+    try {
+      await navigator.clipboard.writeText(text);
+      return 0;
+    } catch {
+      ctx.stderr.writeln("pbcopy: clipboard access denied");
+      return 1;
+    }
+  },
+});
+```
+
+Usage:
+
+```bash
+fetch https://api.example.com/data | grep "status"
+echo "my value" | pbcopy
+localstore set theme dark
+localstore get theme
+```
+
+---
+
+## React Component
+
+A minimal React terminal component:
+
+```tsx
+import { useState, useRef, useEffect } from "react";
+import { Shell } from "faux-shell";
+
+const shell = new Shell({ cwd: "/home/user" });
+
+export function Terminal() {
+  const [lines, setLines] = useState<string[]>(["Welcome to faux-shell"]);
+  const [input, setInput] = useState("");
+  const [history, setHistory] = useState<string[]>([]);
+  const [histIdx, setHistIdx] = useState(-1);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [lines]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    setLines((prev) => [...prev, `$ ${input}`]);
+    setHistory((prev) => [...prev, input]);
+    setHistIdx(-1);
+
+    if (input.trim() === "clear") {
+      setLines([]);
+      setInput("");
+      return;
+    }
+
+    const result = await shell.run(input);
+    if (result.stdout) setLines((prev) => [...prev, result.stdout.trimEnd()]);
+    if (result.stderr) setLines((prev) => [...prev, result.stderr.trimEnd()]);
+    setInput("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowUp" && history.length > 0) {
+      e.preventDefault();
+      const idx = histIdx < 0 ? history.length - 1 : Math.max(0, histIdx - 1);
+      setHistIdx(idx);
+      setInput(history[idx]);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (histIdx >= 0 && histIdx < history.length - 1) {
+        setHistIdx(histIdx + 1);
+        setInput(history[histIdx + 1]);
+      } else {
+        setHistIdx(-1);
+        setInput("");
+      }
+    }
+  };
+
+  return (
+    <div className="bg-gray-900 text-gray-200 font-mono p-4 h-screen overflow-y-auto">
+      {lines.map((line, i) => (
+        <pre key={i} className="whitespace-pre-wrap">{line}</pre>
+      ))}
+      <form onSubmit={submit} className="flex gap-2">
+        <span className="text-green-400">$</span>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="flex-1 bg-transparent outline-none"
+          autoFocus
+        />
+      </form>
+      <div ref={endRef} />
+    </div>
+  );
+}
+```
+
+---
+
+## Tab Completion
+
+Add basic tab completion by intercepting the Tab key and querying registered commands and filesystem entries.
+
+```typescript
+function getCompletions(partial: string): string[] {
+  const commands = shell.commands;
+
+  // Complete command names
+  if (!partial.includes(" ")) {
+    return commands.filter((c) => c.startsWith(partial));
+  }
+
+  // Complete file paths for the last argument
+  const parts = partial.split(" ");
+  const lastArg = parts[parts.length - 1];
+  const dir = lastArg.includes("/")
+    ? lastArg.slice(0, lastArg.lastIndexOf("/") + 1)
+    : "./";
+  const prefix = lastArg.includes("/")
+    ? lastArg.slice(lastArg.lastIndexOf("/") + 1)
+    : lastArg;
+
+  try {
+    const entries = shell.filesystem.readDir(
+      dir.startsWith("/") ? dir : shell.environment.cwd + "/" + dir
+    );
+    return entries
+      .filter((e) => e.startsWith(prefix))
+      .map((e) => {
+        const fullPath = dir === "./" ? e : dir + e;
+        parts[parts.length - 1] = fullPath;
+        return parts.join(" ");
+      });
+  } catch {
+    return [];
+  }
+}
+```
+
+In the xterm.js `onKey` handler, add a Tab case:
+
+```typescript
+if (domEvent.key === "Tab") {
+  domEvent.preventDefault();
+  const completions = getCompletions(currentLine);
+
+  if (completions.length === 1) {
+    // Clear and replace with the single completion
+    while (currentLine.length > 0) {
+      term.write("\b \b");
+      currentLine = currentLine.slice(0, -1);
+    }
+    currentLine = completions[0];
+    term.write(currentLine);
+  } else if (completions.length > 1) {
+    // Show all completions below
+    term.write("\r\n");
+    term.writeln(completions.join("  "));
+    writePrompt();
+    term.write(currentLine);
+  }
+}
+```
+
+:::tip
+For a production terminal, consider using the `@xterm/addon-web-links` addon for clickable URLs and `@xterm/addon-search` for Ctrl+F search within terminal output.
+:::

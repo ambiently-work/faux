@@ -1,0 +1,333 @@
+---
+title: "Shell API"
+description: "Complete API reference for the Shell class — the main entry point for faux-shell."
+---
+
+import { Code } from '@astrojs/starlight/components';
+
+The `Shell` class is the primary interface for faux-shell. It wraps the parser, virtual filesystem, environment, and command registry into a single object that accepts bash commands and returns structured results.
+
+```typescript
+import { Shell } from "faux-shell";
+```
+
+## Constructor
+
+```typescript
+const shell = new Shell(options?: ShellOptions);
+```
+
+Creates a new shell instance. All options are optional — calling `new Shell()` gives you a fully functional shell with 111 built-in commands, an empty virtual filesystem (with standard directories like `/tmp`, `/root`, `/home`, `/usr/bin`), and default environment variables.
+
+### `ShellOptions`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `env` | `Record<string, string>` | See below | Initial environment variables. Merged on top of defaults. |
+| `fs` | `Record<string, string>` | `{}` | Initial filesystem contents. Keys are file paths, values are file contents. Parent directories are created automatically. |
+| `commands` | `CommandHandler[]` | `[]` | Custom commands to register alongside the built-in commands. |
+| `parser` | `(input: string) => AstNode` | `parse` | Custom parse function. Use this to swap in the WASM parser or a custom parser. |
+| `cwd` | `string` | `"/"` | Initial working directory. |
+| `builtins` | `boolean` | `true` | Whether to register the 111 default built-in commands. Set to `false` to start with an empty command registry. |
+
+#### Default environment variables
+
+When no `env` option is provided, the shell starts with:
+
+```
+HOME=/root
+PATH=/usr/bin:/bin
+PWD=/
+SHELL=/bin/bash
+USER=root
+HOSTNAME=faux-shell
+TERM=xterm-256color
+LANG=en_US.UTF-8
+SHLVL=1
+IFS= \t\n
+```
+
+### Examples
+
+Minimal shell:
+
+```typescript
+const shell = new Shell();
+const result = await shell.run("echo hello");
+// result.stdout === "hello\n"
+```
+
+Shell with pre-seeded files:
+
+```typescript
+const shell = new Shell({
+  fs: {
+    "/etc/config.json": '{"debug": true}',
+    "/data/users.csv": "name,age\nalice,30\nbob,25\n",
+  },
+  env: { APP_ENV: "production" },
+  cwd: "/data",
+});
+```
+
+Shell with custom commands only (no builtins):
+
+```typescript
+const shell = new Shell({
+  builtins: false,
+  commands: [myCustomCommand],
+});
+```
+
+---
+
+## Methods
+
+### `run(command)`
+
+```typescript
+async run(command: string): Promise<ShellResult>
+```
+
+Parse and execute a shell command string. Supports the full bash syntax: pipes, redirects, variables, subshells, control flow, functions, and more.
+
+Returns a `ShellResult` with `stdout`, `stderr`, and `exitCode`. State mutations (filesystem changes, variable assignments, directory changes) persist across calls.
+
+```typescript
+const result = await shell.run('echo "hello world" | wc -w');
+console.log(result.stdout);   // "1\n"
+console.log(result.stderr);   // ""
+console.log(result.exitCode); // 0
+```
+
+If the command string is empty or whitespace-only, returns `{ stdout: "", stderr: "", exitCode: 0 }`.
+
+If parsing or execution throws, the error message is returned in `stderr` with exit code `2`.
+
+:::note
+`run()` is always async because some commands (like `sleep`, `eval`, `source`) perform async operations internally.
+:::
+
+### `register(handler)`
+
+```typescript
+register(handler: CommandHandler): this
+```
+
+Register a custom command. Returns `this` for chaining.
+
+```typescript
+shell.register({
+  name: "greet",
+  execute(ctx) {
+    ctx.stdout.writeln(`Hello, ${ctx.args[0] ?? "world"}!`);
+    return 0;
+  },
+});
+
+await shell.run("greet Alice"); // stdout: "Hello, Alice!\n"
+```
+
+:::tip
+Registering a command with the same name as a built-in replaces the built-in. This lets you override any default behavior.
+:::
+
+### `unregister(name)`
+
+```typescript
+unregister(name: string): this
+```
+
+Remove a command by name. Returns `this` for chaining.
+
+```typescript
+shell.unregister("rm"); // Disable the rm command
+```
+
+### `filesystem`
+
+```typescript
+get filesystem(): IFileSystem
+```
+
+Direct access to the virtual filesystem. Useful for programmatic file manipulation without going through shell commands.
+
+```typescript
+shell.filesystem.writeFile("/tmp/data.txt", "hello");
+const content = shell.filesystem.readFile("/tmp/data.txt");
+```
+
+See the [VFS API reference](/reference/vfs-api/) for the full `IFileSystem` interface.
+
+### `environment`
+
+```typescript
+get environment(): Environment
+```
+
+Direct access to the environment. Read and write variables, manage aliases, functions, and shell options.
+
+```typescript
+shell.environment.set("MY_VAR", "value");
+const val = shell.environment.get("MY_VAR"); // "value"
+```
+
+See the [Environment API reference](/reference/environment-api/) for the full `Environment` interface.
+
+### `commands`
+
+```typescript
+get commands(): string[]
+```
+
+Returns a list of all registered command names.
+
+```typescript
+const names = shell.commands;
+console.log(names.length); // 111 (with default builtins)
+console.log(names.includes("grep")); // true
+```
+
+### `mount(path, fs)`
+
+```typescript
+mount(path: string, fs: IFileSystem): this
+```
+
+Mount an external filesystem implementation at a given path. Any file operations under that path will be delegated to the mounted filesystem. Returns `this` for chaining.
+
+```typescript
+import { VirtualFileSystem } from "faux-shell";
+
+const dataFs = new VirtualFileSystem({
+  files: { "/readme.txt": "Hello from mounted FS" },
+});
+
+shell.mount("/mnt/data", dataFs);
+```
+
+### `cd(path)`
+
+```typescript
+cd(path: string): this
+```
+
+Change the current working directory programmatically. Equivalent to running `cd <path>` but without going through the parser. Returns `this` for chaining.
+
+```typescript
+shell.cd("/tmp");
+await shell.run("pwd"); // stdout: "/tmp\n"
+```
+
+:::caution
+`cd()` does not validate that the target directory exists in the VFS. If you need validation, use `shell.run("cd /path")` instead, which will return a non-zero exit code if the directory is missing.
+:::
+
+### `snapshot()`
+
+```typescript
+snapshot(): Record<string, string>
+```
+
+Dump the entire virtual filesystem as a flat `Record<string, string>` where keys are absolute file paths and values are file contents. Only files are included (not directories or symlinks).
+
+```typescript
+await shell.run("mkdir -p /app");
+await shell.run('echo "hello" > /app/greeting.txt');
+
+const files = shell.snapshot();
+// { "/app/greeting.txt": "hello\n" }
+```
+
+This is useful for serializing state, testing assertions, or persisting the filesystem to external storage.
+
+---
+
+## `ShellResult`
+
+```typescript
+interface ShellResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+```
+
+Every call to `shell.run()` returns a `ShellResult`:
+
+| Field | Description |
+|---|---|
+| `stdout` | Standard output. Most commands terminate their output with `\n`. |
+| `stderr` | Standard error. Empty string when there are no errors. |
+| `exitCode` | `0` for success, non-zero for failure. Follows bash conventions (`1` for general errors, `2` for usage/parse errors, `127` for command not found). |
+
+---
+
+## `CommandHandler`
+
+```typescript
+interface CommandHandler {
+  name: string;
+  execute(ctx: CommandContext): number | Promise<number>;
+}
+```
+
+The interface for registering custom commands. The `execute` function receives a `CommandContext` and returns an exit code (synchronously or as a Promise).
+
+### `CommandContext`
+
+```typescript
+interface CommandContext {
+  args: string[];           // Arguments passed to the command (argv[1:])
+  stdin: string;            // Standard input content (from pipe or redirect)
+  env: Environment;         // Environment variables (read/write)
+  fs: IFileSystem;          // Virtual filesystem access
+  cwd: string;              // Current working directory
+  stdout: WritableBuffer;   // Write to stdout
+  stderr: WritableBuffer;   // Write to stderr
+  resolve(path: string): string;                   // Resolve path relative to cwd
+  subExec(command: string): Promise<ShellSubExecResult>; // Run a sub-command
+}
+```
+
+| Field | Description |
+|---|---|
+| `args` | The arguments array, excluding the command name itself. |
+| `stdin` | Content piped into this command. Empty string if nothing was piped. |
+| `env` | Full read/write access to the shell environment. |
+| `fs` | Full access to the virtual filesystem. |
+| `cwd` | The current working directory as an absolute path. |
+| `stdout` | Write output using `stdout.write(str)` or `stdout.writeln(str)`. |
+| `stderr` | Write errors using `stderr.write(str)` or `stderr.writeln(str)`. |
+| `resolve(path)` | Resolves a relative path against the current working directory. |
+| `subExec(command)` | Execute a sub-command string. Used by commands like `eval` and `source`. |
+
+### Custom command example
+
+```typescript
+const lineCount: CommandHandler = {
+  name: "linecount",
+  execute(ctx) {
+    if (ctx.args.length === 0 && ctx.stdin) {
+      const count = ctx.stdin.split("\n").filter(Boolean).length;
+      ctx.stdout.writeln(String(count));
+      return 0;
+    }
+
+    for (const file of ctx.args) {
+      try {
+        const content = ctx.fs.readFile(ctx.resolve(file));
+        const count = content.split("\n").filter(Boolean).length;
+        ctx.stdout.writeln(`${count} ${file}`);
+      } catch {
+        ctx.stderr.writeln(`linecount: ${file}: No such file or directory`);
+        return 1;
+      }
+    }
+    return 0;
+  },
+};
+
+const shell = new Shell({ commands: [lineCount] });
+await shell.run('echo -e "a\nb\nc" | linecount'); // stdout: "3\n"
+```
