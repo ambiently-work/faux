@@ -94,7 +94,7 @@ export async function executeCommand(
 
 		// Handle redirects: write stdout to file if needed
 		let stdoutStr = stdout.toString();
-		const stderrStr = stderr.toString();
+		let stderrStr = stderr.toString();
 
 		for (const redirect of redirects) {
 			if (redirect.op === ">" || redirect.op === ">>") {
@@ -112,6 +112,7 @@ export async function executeCommand(
 					} else {
 						ctx.fs.appendFile(target, stderrStr);
 					}
+					stderrStr = "";
 				}
 			} else if (redirect.op === "&>" || redirect.op === "&>>") {
 				const target = resolvePath(redirect.target);
@@ -122,6 +123,7 @@ export async function executeCommand(
 					ctx.fs.appendFile(target, combined);
 				}
 				stdoutStr = "";
+				stderrStr = "";
 			}
 		}
 
