@@ -752,3 +752,130 @@ describe("subshells and functions", () => {
 		expect(r.stdout.trim()).toBe("hello world");
 	});
 });
+
+// ─── condition output preservation ─────────────────────────────────
+
+describe("condition output", () => {
+	test("if condition output is preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run('if echo check; then echo yes; fi');
+		expect(r.stdout).toBe("check\nyes\n");
+	});
+
+	test("elif condition outputs preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			'if false; then echo no; elif echo cond; then echo yes; fi',
+		);
+		expect(r.stdout).toBe("cond\nyes\n");
+	});
+
+	test("while condition output preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			'x=0; while [ $x -lt 2 ]; do x=$((x+1)); echo body; done',
+		);
+		expect(r.stdout).toBe("body\nbody\n");
+	});
+});
+
+// ─── pipe and command substitution ─────────────────────────────────
+
+describe("command substitution", () => {
+	test("$(cmd) captures output", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo "hello $(echo world)"');
+		expect(r.stdout.trim()).toBe("hello world");
+	});
+
+	test("nested substitution", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo $(echo $(echo deep))');
+		expect(r.stdout.trim()).toBe("deep");
+	});
+
+	test("backtick substitution", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo `echo backtick`');
+		expect(r.stdout.trim()).toBe("backtick");
+	});
+});
+
+// ─── xargs ─────────────────────────────────────────────────────────
+
+describe("xargs", () => {
+	test("basic xargs", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo "a b c" | xargs echo');
+		expect(r.stdout.trim()).toBe("a b c");
+	});
+
+	test("-n max args", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo "a b c d" | xargs -n 2 echo');
+		const lines = r.stdout.trim().split("\n");
+		expect(lines).toHaveLength(2);
+	});
+});
+
+// ─── special variables ─────────────────────────────────────────────
+
+describe("special variables", () => {
+	test("$# counts positional args in function", async () => {
+		const shell = createShell();
+		await shell.run('count() { echo $#; }');
+		const r = await shell.run("count a b c");
+		expect(r.stdout.trim()).toBe("3");
+	});
+
+	test("$@ expands positional args", async () => {
+		const shell = createShell();
+		await shell.run('show() { echo $@; }');
+		const r = await shell.run("show x y z");
+		expect(r.stdout.trim()).toBe("x y z");
+	});
+
+	test("RANDOM produces a number", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo $RANDOM");
+		const val = Number.parseInt(r.stdout.trim(), 10);
+		expect(val).toBeGreaterThanOrEqual(0);
+		expect(val).toBeLessThan(32768);
+	});
+});
+
+// ─── string manipulation builtins ──────────────────────────────────
+
+describe("string builtins", () => {
+	test("wc -c counts bytes", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo -n "hello" | wc -c');
+		expect(r.stdout.trim()).toBe("5");
+	});
+
+	test("sort -f fold case", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "Banana\\napple\\nCherry\\n" | sort -f');
+		expect(r.stdout).toBe("apple\nBanana\nCherry\n");
+	});
+
+	test("uniq -u only unique", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "a\\na\\nb\\nc\\nc\\n" | uniq -u');
+		expect(r.stdout.trim()).toBe("b");
+	});
+
+	test("cut -d with tab delimiter", async () => {
+		const shell = createShell();
+		const r = await shell.run("cut -f2 /home/user/tabs.txt");
+		expect(r.stdout).toBe("two\nfive\n");
+	});
+
+	test("paste merges files", async () => {
+		const shell = createShell();
+		await shell.run('printf "a\\nb\\n" > /tmp/p1');
+		await shell.run('printf "1\\n2\\n" > /tmp/p2');
+		const r = await shell.run("paste /tmp/p1 /tmp/p2");
+		expect(r.stdout).toBe("a\t1\nb\t2\n");
+	});
+});
