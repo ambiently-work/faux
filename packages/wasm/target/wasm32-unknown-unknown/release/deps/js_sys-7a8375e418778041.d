@@ -1,0 +1,10 @@
+/Volumes/DevDisk/Developer/lucasilverentand/faux-shell/packages/wasm/target/wasm32-unknown-unknown/release/deps/js_sys-7a8375e418778041.d: /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/lib.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/mod.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/queue.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/task/singlethread.rs
+
+/Volumes/DevDisk/Developer/lucasilverentand/faux-shell/packages/wasm/target/wasm32-unknown-unknown/release/deps/libjs_sys-7a8375e418778041.rlib: /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/lib.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/mod.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/queue.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/task/singlethread.rs
+
+/Volumes/DevDisk/Developer/lucasilverentand/faux-shell/packages/wasm/target/wasm32-unknown-unknown/release/deps/libjs_sys-7a8375e418778041.rmeta: /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/lib.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/mod.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/queue.rs /Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/task/singlethread.rs
+
+/Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/lib.rs:
+/Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/mod.rs:
+/Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/queue.rs:
+/Users/luca/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.94/src/futures/task/singlethread.rs:
