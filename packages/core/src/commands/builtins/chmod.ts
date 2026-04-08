@@ -1,6 +1,6 @@
 import { command } from "../builder.js";
 
-function parseSymbolicMode(spec: string, currentMode: number): number {
+function parseSymbolicMode(spec: string, currentMode: number, isDirectory = false): number {
 	let mode = currentMode;
 	// Split on comma for multiple specs: u+r,g+w
 	const parts = spec.split(",");
@@ -27,7 +27,7 @@ function parseSymbolicMode(spec: string, currentMode: number): number {
 					break;
 				case "X":
 					// Execute only if directory or already has execute
-					if (currentMode & 0o111) bits |= 1;
+					if (isDirectory || (currentMode & 0o111)) bits |= 1;
 					break;
 				case "s":
 					break; // setuid/setgid - simplified
@@ -101,7 +101,7 @@ export const chmod = command("chmod")
 				if (/^[0-7]+$/.test(modeSpec)) {
 					newMode = Number.parseInt(modeSpec, 8);
 				} else {
-					newMode = parseSymbolicMode(modeSpec, st.mode);
+					newMode = parseSymbolicMode(modeSpec, st.mode, st.isDirectory());
 					if (newMode === -1) {
 						ctx.stderr.writeln(`chmod: invalid mode: '${modeSpec}'`);
 						return false;
