@@ -1675,3 +1675,94 @@ describe("set and shopt", () => {
 		expect(r.exitCode).toBe(0);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 4: Info & System (date, uname, hostname, id, type, which, command)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("date", () => {
+	test("outputs a date string", async () => {
+		const shell = createShell();
+		const r = await shell.run("date");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim().length).toBeGreaterThan(0);
+	});
+
+	test("+%Y format gives 4-digit year", async () => {
+		const shell = createShell();
+		const r = await shell.run("date +%Y");
+		expect(r.stdout.trim()).toMatch(/^\d{4}$/);
+	});
+
+	test("+%s gives epoch seconds", async () => {
+		const shell = createShell();
+		const r = await shell.run("date +%s");
+		const epoch = Number.parseInt(r.stdout.trim(), 10);
+		expect(epoch).toBeGreaterThan(1700000000);
+	});
+});
+
+describe("uname", () => {
+	test("default output", async () => {
+		const shell = createShell();
+		const r = await shell.run("uname");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim().length).toBeGreaterThan(0);
+	});
+
+	test("-a shows all info", async () => {
+		const shell = createShell();
+		const r = await shell.run("uname -a");
+		expect(r.stdout.trim().length).toBeGreaterThan(0);
+	});
+});
+
+describe("hostname", () => {
+	test("returns hostname", async () => {
+		const shell = createShell();
+		const r = await shell.run("hostname");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim()).toBe("faux-shell");
+	});
+});
+
+describe("id and whoami", () => {
+	test("whoami returns current user", async () => {
+		const shell = createShell();
+		const r = await shell.run("whoami");
+		expect(r.stdout.trim()).toBe("testuser");
+	});
+});
+
+describe("type and which", () => {
+	test("type identifies builtin", async () => {
+		const shell = createShell();
+		const r = await shell.run("type echo");
+		expect(r.stdout).toContain("builtin");
+	});
+
+	test("type identifies keyword", async () => {
+		const shell = createShell();
+		const r = await shell.run("type if");
+		expect(r.stdout).toContain("keyword");
+	});
+
+	test("type -t returns type word", async () => {
+		const shell = createShell();
+		const r = await shell.run("type -t echo");
+		expect(r.stdout.trim()).toBe("builtin");
+	});
+
+	test("type returns error for unknown", async () => {
+		const shell = createShell();
+		const r = await shell.run("type nonexistent_cmd_xyz");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("command -v describes command", async () => {
+		const shell = createShell();
+		const r = await shell.run("command -v echo");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim()).toBe("echo");
+	});
+});
