@@ -54,12 +54,13 @@ export const sort = command("sort")
 			}
 		}
 
+		const fieldSep: string | RegExp = separator ?? /\s+/;
+
 		const getKey = (line: string): string => {
 			if (keyField === null) {
 				return ignoreLeadingBlanks ? line.trimStart() : line;
 			}
-			const sep = separator ?? /\s+/;
-			const fields = line.split(sep);
+			const fields = line.split(fieldSep);
 			if (keyEnd >= 0) {
 				return fields.slice(keyStart, keyEnd + 1).join(separator ?? " ");
 			}
