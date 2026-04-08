@@ -1,22 +1,5 @@
 import { command } from "../builder.js";
-
-export class ShellExitError extends Error {
-	readonly code: number;
-	constructor(code: number) {
-		super(`exit: ${code}`);
-		this.name = "ShellExitError";
-		this.code = code;
-	}
-}
-
-export class ShellReturnError extends Error {
-	readonly code: number;
-	constructor(code: number) {
-		super(`return: ${code}`);
-		this.name = "ShellReturnError";
-		this.code = code;
-	}
-}
+import { ShellExit, ShellReturn } from "../../executor/pipeline.js";
 
 export const exit = command("exit")
 	.description("Exit the shell")
@@ -29,12 +12,12 @@ export const exit = command("exit")
 			const parsed = Number.parseInt(args[0], 10);
 			if (Number.isNaN(parsed)) {
 				ctx.stderr.writeln(`exit: ${args[0]}: numeric argument required`);
-				throw new ShellExitError(2);
+				throw new ShellExit(2);
 			}
 			code = parsed & 0xff;
 		}
 
-		throw new ShellExitError(code);
+		throw new ShellExit(code);
 	})
 	.toHandler();
 
@@ -49,11 +32,11 @@ export const returnCmd = command("return")
 			const parsed = Number.parseInt(args[0], 10);
 			if (Number.isNaN(parsed)) {
 				ctx.stderr.writeln(`return: ${args[0]}: numeric argument required`);
-				throw new ShellReturnError(2);
+				throw new ShellReturn(2);
 			}
 			code = parsed & 0xff;
 		}
 
-		throw new ShellReturnError(code);
+		throw new ShellReturn(code);
 	})
 	.toHandler();
