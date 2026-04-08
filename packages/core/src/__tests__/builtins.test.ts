@@ -1914,3 +1914,81 @@ describe("du", () => {
 		expect(r.stdout.trim().length).toBeGreaterThan(0);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 7: Job Control & Process (sleep, yes, getopts, umask, ulimit)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("sleep", () => {
+	test("sleep 0 returns immediately", async () => {
+		const shell = createShell();
+		const r = await shell.run("sleep 0");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("accepts suffix s", async () => {
+		const shell = createShell();
+		const r = await shell.run("sleep 0s");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("invalid duration errors", async () => {
+		const shell = createShell();
+		const r = await shell.run("sleep xyz");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("negative duration errors", async () => {
+		const shell = createShell();
+		const r = await shell.run("sleep -1");
+		expect(r.exitCode).toBe(1);
+	});
+});
+
+describe("yes", () => {
+	test("outputs repeated text", async () => {
+		const shell = createShell();
+		const r = await shell.run("yes hello | head -n 3");
+		expect(r.stdout).toBe("hello\nhello\nhello\n");
+	});
+
+	test("defaults to y", async () => {
+		const shell = createShell();
+		const r = await shell.run("yes | head -n 2");
+		expect(r.stdout).toBe("y\ny\n");
+	});
+});
+
+describe("umask", () => {
+	test("displays current mask", async () => {
+		const shell = createShell();
+		const r = await shell.run("umask");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim()).toMatch(/^[0-7]{4}$/);
+	});
+
+	test("sets numeric mask", async () => {
+		const shell = createShell();
+		await shell.run("umask 0077");
+		const r = await shell.run("umask");
+		expect(r.stdout.trim()).toBe("0077");
+	});
+
+	test("-S shows symbolic format", async () => {
+		const shell = createShell();
+		await shell.run("umask 0022");
+		const r = await shell.run("umask -S");
+		expect(r.stdout).toContain("u=");
+		expect(r.stdout).toContain("g=");
+		expect(r.stdout).toContain("o=");
+	});
+});
+
+describe("ulimit", () => {
+	test("displays limits", async () => {
+		const shell = createShell();
+		const r = await shell.run("ulimit -a");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.length).toBeGreaterThan(0);
+	});
+});
