@@ -1452,3 +1452,109 @@ describe("mkdir", () => {
 		expect(r.exitCode).toBe(0);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 2: Text Processing (awk, diff, comm, join, nl, fold)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("awk", () => {
+	test("prints specific field", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'one two three' | awk '{print $2}'");
+		expect(r.stdout.trim()).toBe("two");
+	});
+
+	test("-F custom separator", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'a:b:c' | awk -F: '{print $2}'");
+		expect(r.stdout.trim()).toBe("b");
+	});
+
+	test("pattern matching", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "yes match\\nno skip\\nyes again\\n" | awk "/yes/{print}"');
+		expect(r.stdout).toContain("yes match");
+		expect(r.stdout).toContain("yes again");
+		expect(r.stdout).not.toContain("no skip");
+	});
+
+	test("NR line number", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "a\\nb\\nc\\n" | awk \'{print NR, $0}\'');
+		expect(r.stdout).toContain("1 a");
+		expect(r.stdout).toContain("3 c");
+	});
+});
+
+describe("diff", () => {
+	test("identical files produce no output", async () => {
+		const shell = createShell();
+		await shell.run("echo hello > /tmp/f1");
+		await shell.run("echo hello > /tmp/f2");
+		const r = await shell.run("diff /tmp/f1 /tmp/f2");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout).toBe("");
+	});
+
+	test("different files produce diff output", async () => {
+		const shell = createShell();
+		await shell.run("echo hello > /tmp/f1");
+		await shell.run("echo world > /tmp/f2");
+		const r = await shell.run("diff /tmp/f1 /tmp/f2");
+		expect(r.exitCode).toBe(1);
+		expect(r.stdout.length).toBeGreaterThan(0);
+	});
+});
+
+describe("comm", () => {
+	test("shows three columns", async () => {
+		const shell = createShell();
+		await shell.run('printf "a\\nc\\n" > /tmp/c1');
+		await shell.run('printf "b\\nc\\n" > /tmp/c2');
+		const r = await shell.run("comm /tmp/c1 /tmp/c2");
+		expect(r.stdout).toContain("a");
+		expect(r.stdout).toContain("b");
+		expect(r.stdout).toContain("c");
+	});
+});
+
+describe("join", () => {
+	test("joins on common field", async () => {
+		const shell = createShell();
+		await shell.run('printf "1 alice\\n2 bob\\n" > /tmp/j1');
+		await shell.run('printf "1 admin\\n2 user\\n" > /tmp/j2');
+		const r = await shell.run("join /tmp/j1 /tmp/j2");
+		expect(r.stdout).toContain("alice");
+		expect(r.stdout).toContain("admin");
+	});
+});
+
+describe("nl", () => {
+	test("numbers non-blank lines by default", async () => {
+		const shell = createShell();
+		const r = await shell.run("nl /home/user/lines.txt");
+		expect(r.stdout).toContain("1");
+		expect(r.stdout).toContain("alpha");
+		expect(r.stdout).toContain("4");
+		expect(r.stdout).toContain("delta");
+	});
+
+	test("-b a numbers all lines", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "a\\n\\nb\\n" | nl -b a');
+		expect(r.stdout).toContain("1");
+		expect(r.stdout).toContain("2");
+		expect(r.stdout).toContain("3");
+	});
+});
+
+describe("fold", () => {
+	test("-w wraps at specified width", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'abcdefghij' | fold -w 5");
+		const lines = r.stdout.trim().split("\n");
+		expect(lines.length).toBe(2);
+		expect(lines[0]).toBe("abcde");
+		expect(lines[1]).toBe("fghij");
+	});
+});
