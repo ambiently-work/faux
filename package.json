@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "shell": "bun run packages/cli/src/repl.ts",
+    "wasm-demo": "bun run packages/cli/src/wasm-demo.ts",
     "docs": "bun run --cwd packages/docs dev",
     "docs:build": "bun run --cwd packages/docs build",
     "build": "bun run --filter '*' build",
