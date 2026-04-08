@@ -35,6 +35,12 @@ interface Cursor {
 	pos: number;
 }
 
+const LET_TWO_CHAR_OPS = new Set([
+	"==", "!=", "<=", ">=", "&&", "||",
+	"++", "--", "<<", ">>", "+=", "-=",
+	"*=", "/=", "%=", "**", "&=", "|=", "^=",
+]);
+
 function tokenizeLet(expr: string): string[] {
 	const tokens: string[] = [];
 	let i = 0;
@@ -60,29 +66,7 @@ function tokenizeLet(expr: string): string[] {
 		// Two-char operators
 		if (i + 1 < expr.length) {
 			const two = expr[i] + expr[i + 1];
-			if (
-				[
-					"==",
-					"!=",
-					"<=",
-					">=",
-					"&&",
-					"||",
-					"++",
-					"--",
-					"<<",
-					">>",
-					"+=",
-					"-=",
-					"*=",
-					"/=",
-					"%=",
-					"**",
-					"&=",
-					"|=",
-					"^=",
-				].includes(two)
-			) {
+			if (LET_TWO_CHAR_OPS.has(two)) {
 				tokens.push(two);
 				i += 2;
 				continue;

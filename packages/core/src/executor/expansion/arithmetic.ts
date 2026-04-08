@@ -112,26 +112,7 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 		// Two-char operators
 		if (i + 1 < s.length) {
 			const two = s[i] + s[i + 1];
-			if (
-				[
-					"<=",
-					">=",
-					"==",
-					"!=",
-					"&&",
-					"||",
-					"<<",
-					">>",
-					"**",
-					"+=",
-					"-=",
-					"*=",
-					"/=",
-					"%=",
-					"++",
-					"--",
-				].includes(two)
-			) {
+			if (TWO_CHAR_OPS.has(two)) {
 				tokens.push(two);
 				i += 2;
 				continue;
@@ -147,6 +128,11 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 }
 
 const ASSIGN_OPS = new Set(["=", "+=", "-=", "*=", "/=", "%="]);
+const TWO_CHAR_OPS = new Set([
+	"<=", ">=", "==", "!=", "&&", "||",
+	"<<", ">>", "**", "+=", "-=", "*=",
+	"/=", "%=", "++", "--",
+]);
 
 function resolveVar(tok: string, env: Environment): number {
 	if (tok.startsWith("@")) {
