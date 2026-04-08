@@ -36,7 +36,16 @@ export const exec = command("exec")
 				continue;
 			}
 
-			if (arg.startsWith(">")) {
+			if (arg.startsWith(">>") && arg.length > 2) {
+				const file = ctx.resolve(arg.slice(2));
+				if (!ctx.fs.exists(file)) {
+					ctx.fs.writeFile(file, "");
+				}
+				args.splice(i, 1);
+				continue;
+			}
+
+			if (arg.startsWith(">") && arg.length > 1) {
 				const file = ctx.resolve(arg.slice(1));
 				ctx.fs.writeFile(file, "");
 				args.splice(i, 1);
