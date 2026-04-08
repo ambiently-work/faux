@@ -85,7 +85,8 @@ export const cat = command("cat")
 				lineNum++;
 			}
 
-			ctx.stdout.write(line + "\n");
+			const isLast = idx === lines.length - 1;
+			ctx.stdout.write(line + (isLast && !hasTrailingNewline ? "" : "\n"));
 			prevBlank = isBlank;
 		}
 
