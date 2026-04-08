@@ -159,7 +159,16 @@ export class Executor {
 				" " +
 				(await Promise.all(node.args.map((a: Word) => this.expandWordStr(a)))).join(" ");
 			const ast = parse(aliasedCmd);
-			return this.executeNode(ast, stdin);
+			const result = await this.executeNode(ast, stdin);
+			// Restore temp vars from prefix assignments
+			for (const { name, value } of savedVars) {
+				if (value === undefined) {
+					this.env.unset(name);
+				} else {
+					this.env.set(name, value);
+				}
+			}
+			return result;
 		}
 
 		// Expand arguments
