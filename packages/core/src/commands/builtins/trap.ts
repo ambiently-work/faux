@@ -67,14 +67,18 @@ export const trap = command("trap")
 			const arg = raw[i];
 
 			if (arg === "-l") {
+				const PSEUDO_SIGNALS = new Set(["EXIT", "ERR", "DEBUG", "RETURN"]);
 				let line = "";
+				let count = 0;
 				for (let j = 0; j < SIGNAL_LIST.length; j++) {
-					const entry = `${j + 1}) SIG${SIGNAL_LIST[j]}`;
+					if (PSEUDO_SIGNALS.has(SIGNAL_LIST[j])) continue;
+					const entry = `${j}) SIG${SIGNAL_LIST[j]}`;
 					if (line.length > 0) {
 						line += "\t";
 					}
 					line += entry;
-					if ((j + 1) % 5 === 0) {
+					count++;
+					if (count % 5 === 0) {
 						ctx.stdout.writeln(line);
 						line = "";
 					}
