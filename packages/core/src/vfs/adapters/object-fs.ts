@@ -18,15 +18,28 @@ import { globMatch } from "../glob.js";
  */
 export class ObjectFileSystem implements IFileSystem {
 	private files: Map<string, { content: string; mtime: number }>;
+	private dirs: Set<string>;
 
 	constructor(files?: Record<string, string>) {
 		this.files = new Map();
+		this.dirs = new Set(["/"]);
 		if (files) {
 			const now = Date.now();
 			for (const [path, content] of Object.entries(files)) {
 				const normalized = path.startsWith("/") ? path : "/" + path;
 				this.files.set(normalized, { content, mtime: now });
+				this.trackDirs(normalized);
 			}
+		}
+	}
+
+	private trackDirs(filePath: string): void {
+		let i = filePath.lastIndexOf("/");
+		while (i > 0) {
+			const dir = filePath.slice(0, i);
+			if (this.dirs.has(dir)) break;
+			this.dirs.add(dir);
+			i = dir.lastIndexOf("/");
 		}
 	}
 
@@ -37,12 +50,7 @@ export class ObjectFileSystem implements IFileSystem {
 
 	private isDir(path: string): boolean {
 		const normalized = this.normalizePath(path);
-		if (normalized === "/") return true;
-		const prefix = normalized.endsWith("/") ? normalized : normalized + "/";
-		for (const key of this.files.keys()) {
-			if (key.startsWith(prefix)) return true;
-		}
-		return false;
+		return this.dirs.has(normalized);
 	}
 
 	private makeStats(
@@ -74,12 +82,13 @@ export class ObjectFileSystem implements IFileSystem {
 	readDir(path: string): string[] {
 		const normalized = this.normalizePath(path);
 		const prefix = normalized === "/" ? "/" : normalized + "/";
+		const prefixLen = prefix.length;
 		const entries = new Set<string>();
 
 		for (const key of this.files.keys()) {
 			if (key.startsWith(prefix)) {
-				const rest = key.slice(prefix.length);
-				const firstSegment = rest.split("/")[0];
+				const slashIdx = key.indexOf("/", prefixLen);
+				const firstSegment = slashIdx === -1 ? key.slice(prefixLen) : key.slice(prefixLen, slashIdx);
 				if (firstSegment) entries.add(firstSegment);
 			}
 		}
@@ -111,6 +120,7 @@ export class ObjectFileSystem implements IFileSystem {
 	writeFile(path: string, content: string): void {
 		const normalized = this.normalizePath(path);
 		this.files.set(normalized, { content, mtime: Date.now() });
+		this.trackDirs(normalized);
 	}
 
 	appendFile(path: string, content: string): void {
@@ -124,8 +134,10 @@ export class ObjectFileSystem implements IFileSystem {
 		}
 	}
 
-	mkdir(): void {
-		// Directories are implicit in ObjectFileSystem
+	mkdir(path: string): void {
+		const normalized = this.normalizePath(path);
+		this.dirs.add(normalized);
+		this.trackDirs(normalized);
 	}
 
 	rm(path: string, options?: { recursive?: boolean; force?: boolean }): void {
