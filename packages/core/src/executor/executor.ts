@@ -274,18 +274,33 @@ export class Executor {
 	}
 
 	private async executeIfNode(node: IfNode, stdin: string): Promise<ShellResult> {
+		let allStdout = "";
+		let allStderr = "";
+
 		for (const clause of node.clauses) {
 			const condResult = await this.executeNode(clause.condition, stdin);
+			allStdout += condResult.stdout;
+			allStderr += condResult.stderr;
 			if (condResult.exitCode === 0) {
-				return this.executeNode(clause.body, stdin);
+				const bodyResult = await this.executeNode(clause.body, stdin);
+				return {
+					stdout: allStdout + bodyResult.stdout,
+					stderr: allStderr + bodyResult.stderr,
+					exitCode: bodyResult.exitCode,
+				};
 			}
 		}
 
 		if (node.elseBody) {
-			return this.executeNode(node.elseBody, stdin);
+			const elseResult = await this.executeNode(node.elseBody, stdin);
+			return {
+				stdout: allStdout + elseResult.stdout,
+				stderr: allStderr + elseResult.stderr,
+				exitCode: elseResult.exitCode,
+			};
 		}
 
-		return { stdout: "", stderr: "", exitCode: 0 };
+		return { stdout: allStdout, stderr: allStderr, exitCode: 0 };
 	}
 
 	private async executeForNode(node: ForNode, stdin: string): Promise<ShellResult> {
@@ -338,6 +353,8 @@ export class Executor {
 
 		while (iterations < maxIterations) {
 			const condResult = await this.executeNode(node.condition, stdin);
+			allStdout += condResult.stdout;
+			allStderr += condResult.stderr;
 			if (condResult.exitCode !== 0) break;
 
 			try {
@@ -373,6 +390,8 @@ export class Executor {
 
 		while (iterations < maxIterations) {
 			const condResult = await this.executeNode(node.condition, stdin);
+			allStdout += condResult.stdout;
+			allStderr += condResult.stderr;
 			if (condResult.exitCode === 0) break;
 
 			try {
