@@ -51,6 +51,8 @@ export class Command {
 	private _parent: Command | null = null;
 	private _allowUnknown = false;
 	private _stopAfterFirstPositional = false;
+	private _longMap: Map<string, FlagDefinition> | null = null;
+	private _shortMap: Map<string, FlagDefinition> | null = null;
 
 	constructor(name: string) {
 		this._name = name;
@@ -321,7 +323,26 @@ export class Command {
 
 	// --- Arg parsing ---
 
+	private ensureFlagMaps(): void {
+		if (this._longMap) return;
+		this._longMap = new Map();
+		this._shortMap = new Map();
+		for (const def of this._flags) {
+			const key = flagKey(def.long);
+			this._longMap.set(key, def);
+			if (def.alias) {
+				for (const a of def.alias) {
+					this._longMap.set(a, def);
+				}
+			}
+			if (def.short) {
+				this._shortMap.set(def.short, def);
+			}
+		}
+	}
+
 	private parseArgs(raw: string[]): ParsedArgs {
+		this.ensureFlagMaps();
 		const flags: Record<string, string | boolean | number | string[]> = {};
 		const positional: string[] = [];
 		let i = 0;
@@ -365,9 +386,7 @@ export class Command {
 				const negated = name.startsWith("no-");
 				const lookupName = negated ? name.slice(3) : name;
 
-				const def = this._flags.find(
-					(f) => flagKey(f.long) === lookupName || f.alias?.includes(lookupName),
-				);
+				const def = this._longMap!.get(lookupName);
 
 				if (!def) {
 					if (this._allowUnknown) {
@@ -418,7 +437,7 @@ export class Command {
 			let unknownShort = false;
 			for (let j = 0; j < shorts.length; j++) {
 				const ch = shorts[j];
-				const def = this._flags.find((f) => f.short === ch);
+				const def = this._shortMap!.get(ch);
 
 				if (!def) {
 					if (this._allowUnknown) {
