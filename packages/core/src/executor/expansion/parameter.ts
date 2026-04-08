@@ -20,7 +20,7 @@ export async function expandVariableOp(
 	fs: IFileSystem,
 	subExec: SubExecFn,
 ): Promise<string> {
-	const val = env.get(name);
+	const val = env.get(name) ?? env.getSpecial(name);
 	const argStr = async () => expandWord(arg, env, fs, subExec);
 
 	switch (op) {

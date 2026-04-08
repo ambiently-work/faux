@@ -24,6 +24,7 @@ export class Environment {
 	private _pid: number;
 	private _lastBgPid: number;
 	private _readonly: Set<string>;
+	private _startTime: number;
 
 	constructor(initial?: Record<string, string>) {
 		this.vars = new Map();
@@ -37,6 +38,7 @@ export class Environment {
 		this._lastExitCode = 0;
 		this._pid = 1;
 		this._lastBgPid = 0;
+		this._startTime = Date.now();
 
 		// Apply defaults first
 		for (const [key, value] of Object.entries(DEFAULT_VARS)) {
@@ -191,6 +193,7 @@ export class Environment {
 		child._pid = this._pid;
 		child._lastBgPid = this._lastBgPid;
 		child._readonly = new Set(this._readonly);
+		child._startTime = this._startTime;
 
 		// Increment SHLVL
 		const shlvl = Number.parseInt(child.vars.get("SHLVL") ?? "1", 10);
@@ -253,7 +256,7 @@ export class Environment {
 			case "LINENO":
 				return "0";
 			case "SECONDS":
-				return "0";
+				return String(Math.floor((Date.now() - this._startTime) / 1000));
 			case "BASHPID":
 				return String(this._pid);
 			default: {
