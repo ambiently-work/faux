@@ -26,6 +26,7 @@ export const cat = command("cat")
 		}
 
 		const inputs: string[] = [];
+		let exitCode = 0;
 
 		if (args.length === 0) {
 			inputs.push(ctx.stdin);
@@ -39,7 +40,7 @@ export const cat = command("cat")
 						inputs.push(ctx.fs.readFile(resolved));
 					} catch {
 						ctx.stderr.writeln(`cat: ${file}: No such file or directory`);
-						return 1;
+						exitCode = 1;
 					}
 				}
 			}
@@ -88,6 +89,6 @@ export const cat = command("cat")
 			prevBlank = isBlank;
 		}
 
-		return 0;
+		return exitCode;
 	})
 	.toHandler();
