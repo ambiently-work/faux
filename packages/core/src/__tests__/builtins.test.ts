@@ -2277,3 +2277,106 @@ describe("xxd", () => {
 		expect(r.stdout).toContain("4142");
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 11: base64 fix verification, parser, and misc gaps
+// ═══════════════════════════════════════════════════════════════════
+
+describe("base64 encoding correctness", () => {
+	test("encodes hello with correct padding", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n hello | base64");
+		expect(r.stdout.trim()).toBe("aGVsbG8=");
+	});
+
+	test("encodes empty string", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo -n "" | base64');
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("decode reverses encode", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n 'aGVsbG8=' | base64 -d");
+		expect(r.stdout).toBe("hello");
+	});
+
+	test("round-trip preserves data", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n 'test123' | base64 | base64 -d");
+		expect(r.stdout).toBe("test123");
+	});
+});
+
+describe("misc builtins", () => {
+	test("true returns 0", async () => {
+		const shell = createShell();
+		expect((await shell.run("true")).exitCode).toBe(0);
+	});
+
+	test("false returns 1", async () => {
+		const shell = createShell();
+		expect((await shell.run("false")).exitCode).toBe(1);
+	});
+
+	test(": (colon) is a no-op", async () => {
+		const shell = createShell();
+		const r = await shell.run(":");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout).toBe("");
+	});
+
+	test("exit in subshell doesn't kill parent", async () => {
+		const shell = createShell();
+		await shell.run("(exit 1)");
+		const r = await shell.run("echo alive");
+		expect(r.stdout.trim()).toBe("alive");
+	});
+});
+
+describe("function with echo", () => {
+	test("function produces output and returns 0", async () => {
+		const shell = createShell();
+		await shell.run("f() { echo done; }");
+		const r = await shell.run("f");
+		expect(r.stdout.trim()).toBe("done");
+		expect(r.exitCode).toBe(0);
+	});
+});
+
+describe("hash and enable", () => {
+	test("hash -r clears table", async () => {
+		const shell = createShell();
+		const r = await shell.run("hash -r");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("enable lists builtins", async () => {
+		const shell = createShell();
+		const r = await shell.run("enable");
+		expect(r.stdout).toContain("echo");
+		expect(r.stdout).toContain("cd");
+	});
+});
+
+describe("printenv", () => {
+	test("prints all exported vars", async () => {
+		const shell = createShell();
+		await shell.run("export FOO=bar");
+		const r = await shell.run("printenv");
+		expect(r.stdout).toContain("FOO=bar");
+	});
+
+	test("prints specific var", async () => {
+		const shell = createShell();
+		await shell.run("export MYVAR=hello");
+		const r = await shell.run("printenv MYVAR");
+		expect(r.stdout.trim()).toBe("hello");
+	});
+
+	test("returns 1 for unset var", async () => {
+		const shell = createShell();
+		const r = await shell.run("printenv NONEXISTENT_VAR_XYZ");
+		expect(r.exitCode).toBe(1);
+	});
+});
