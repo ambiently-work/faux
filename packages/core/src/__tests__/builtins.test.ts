@@ -879,3 +879,108 @@ describe("string builtins", () => {
 		expect(r.stdout).toBe("a\t1\nb\t2\n");
 	});
 });
+
+// ─── cat edge cases ────────────────────────────────────────────────
+
+describe("cat", () => {
+	test("cat multiple files", async () => {
+		const shell = createShell();
+		const r = await shell.run("cat /home/user/file.txt /home/user/lines.txt");
+		expect(r.stdout).toContain("hello world");
+		expect(r.stdout).toContain("alpha");
+	});
+
+	test("cat continues past missing file", async () => {
+		const shell = createShell();
+		const r = await shell.run("cat /home/user/file.txt /nonexistent /home/user/lines.txt");
+		expect(r.stderr).toContain("No such file");
+		expect(r.stdout).toContain("hello world");
+		expect(r.stdout).toContain("alpha");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("cat -n numbers lines", async () => {
+		const shell = createShell();
+		const r = await shell.run("cat -n /home/user/lines.txt");
+		expect(r.stdout).toContain("1\talpha");
+		expect(r.stdout).toContain("4\tdelta");
+	});
+
+	test("cat stdin when no args", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo hello | cat");
+		expect(r.stdout).toBe("hello\n");
+	});
+});
+
+// ─── mktemp ────────────────────────────────────────────────────────
+
+describe("mktemp", () => {
+	test("creates file with random name", async () => {
+		const shell = createShell();
+		const r = await shell.run("mktemp");
+		expect(r.exitCode).toBe(0);
+		const path = r.stdout.trim();
+		expect(path).toMatch(/^\/tmp\//);
+	});
+
+	test("-d creates directory", async () => {
+		const shell = createShell();
+		const r = await shell.run("mktemp -d");
+		expect(r.exitCode).toBe(0);
+	});
+});
+
+// ─── chmod ─────────────────────────────────────────────────────────
+
+describe("chmod", () => {
+	test("octal mode", async () => {
+		const shell = createShell();
+		await shell.run("touch /tmp/ch");
+		await shell.run("chmod 755 /tmp/ch");
+		const r = await shell.run("stat /tmp/ch");
+		expect(r.stdout).toContain("0755");
+	});
+
+	test("symbolic +x", async () => {
+		const shell = createShell();
+		await shell.run("touch /tmp/ch2");
+		await shell.run("chmod 644 /tmp/ch2");
+		await shell.run("chmod a+x /tmp/ch2");
+		const r = await shell.run("stat /tmp/ch2");
+		expect(r.stdout).toContain("0755");
+	});
+});
+
+// ─── seq edge cases ────────────────────────────────────────────────
+
+describe("seq edge cases", () => {
+	test("descending range", async () => {
+		const shell = createShell();
+		const r = await shell.run("seq 5 -1 1");
+		expect(r.stdout).toBe("5\n4\n3\n2\n1\n");
+	});
+
+	test("-w pads with zeros", async () => {
+		const shell = createShell();
+		const r = await shell.run("seq -w 8 10");
+		expect(r.stdout).toBe("08\n09\n10\n");
+	});
+});
+
+// ─── tilde expansion ──────────────────────────────────────────────
+
+describe("tilde expansion", () => {
+	test("~ expands to HOME", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo ~");
+		expect(r.stdout.trim()).toBe("/home/user");
+	});
+
+	test("~+ expands to PWD", async () => {
+		const shell = createShell();
+		await shell.run("cd /home/user");
+		const r = await shell.run("echo ~+");
+		expect(r.stdout.trim()).toBe("/home/user");
+	});
+});
