@@ -2172,3 +2172,108 @@ describe("regression: condition output preserved", () => {
 		expect(r.stdout).toBe("checking\nyes\n");
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 10: Remaining coverage gaps
+// ═══════════════════════════════════════════════════════════════════
+
+describe("date format specifiers", () => {
+	test("%y gives 2-digit year", async () => {
+		const shell = createShell();
+		const r = await shell.run("date +%y");
+		expect(r.stdout.trim()).toMatch(/^\d{2}$/);
+	});
+
+	test("%D gives mm/dd/yy", async () => {
+		const shell = createShell();
+		const r = await shell.run("date +%D");
+		expect(r.stdout.trim()).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);
+	});
+
+	test("%F gives YYYY-MM-DD", async () => {
+		const shell = createShell();
+		const r = await shell.run("date +%F");
+		expect(r.stdout.trim()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	test("%T gives HH:MM:SS", async () => {
+		const shell = createShell();
+		const r = await shell.run("date +%T");
+		expect(r.stdout.trim()).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+	});
+});
+
+describe("bc", () => {
+	test("basic arithmetic", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo '2 + 3' | bc");
+		expect(r.stdout.trim()).toBe("5");
+	});
+
+	test("multiplication", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo '6 * 7' | bc");
+		expect(r.stdout.trim()).toBe("42");
+	});
+});
+
+describe("fmt", () => {
+	test("wraps text at default width", async () => {
+		const shell = createShell();
+		const long = "word ".repeat(20).trim();
+		await shell.run(`echo '${long}' > /tmp/fmtin`);
+		const r = await shell.run("fmt /tmp/fmtin");
+		expect(r.exitCode).toBe(0);
+		const lines = r.stdout.trim().split("\n");
+		expect(lines.length).toBeGreaterThan(1);
+	});
+
+	test("-w sets custom width", async () => {
+		const shell = createShell();
+		await shell.run("echo 'aaa bbb ccc ddd' > /tmp/fmtin2");
+		const r = await shell.run("fmt -w 10 /tmp/fmtin2");
+		const lines = r.stdout.trim().split("\n");
+		for (const line of lines) {
+			expect(line.length).toBeLessThanOrEqual(10);
+		}
+	});
+});
+
+describe("column", () => {
+	test("-t creates aligned table", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "a b\\ncc dd\\n" | column -t');
+		expect(r.exitCode).toBe(0);
+		const lines = r.stdout.trim().split("\n");
+		expect(lines.length).toBe(2);
+		// First field should be padded so second column aligns
+		expect(lines[0]).toContain("  ");
+	});
+});
+
+describe("df", () => {
+	test("shows filesystem info", async () => {
+		const shell = createShell();
+		const r = await shell.run("df");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.length).toBeGreaterThan(0);
+	});
+});
+
+describe("strings", () => {
+	test("extracts printable sequences", async () => {
+		const shell = createShell();
+		await shell.run("echo 'hello world' > /tmp/strfile");
+		const r = await shell.run("strings /tmp/strfile");
+		expect(r.stdout).toContain("hello world");
+	});
+});
+
+describe("xxd", () => {
+	test("produces hex dump", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n AB | xxd");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout).toContain("4142");
+	});
+});
