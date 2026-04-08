@@ -125,7 +125,7 @@ function parsePrimary(args: string[], cur: Cursor, ctx: TestCtx): boolean {
 		const op = args[cur.pos + 1];
 		const right = args[cur.pos + 2];
 		cur.pos += 3;
-		return evalBinary(left, op, right);
+		return evalBinary(left, op, right, ctx);
 	}
 
 	// Single string: true if non-empty
@@ -228,7 +228,7 @@ function evalUnary(op: string, operand: string, ctx: TestCtx): boolean | undefin
 	}
 }
 
-function evalBinary(left: string, op: string, right: string): boolean {
+function evalBinary(left: string, op: string, right: string, ctx: TestCtx): boolean {
 	switch (op) {
 		case "=":
 		case "==":
@@ -251,6 +251,33 @@ function evalBinary(left: string, op: string, right: string): boolean {
 			return toNum(left) > toNum(right);
 		case "-ge":
 			return toNum(left) >= toNum(right);
+		case "-nt": {
+			try {
+				const lm = ctx.fs.stat(ctx.resolve(left)).mtime;
+				const rm = ctx.fs.stat(ctx.resolve(right)).mtime;
+				return lm > rm;
+			} catch {
+				return false;
+			}
+		}
+		case "-ot": {
+			try {
+				const lm = ctx.fs.stat(ctx.resolve(left)).mtime;
+				const rm = ctx.fs.stat(ctx.resolve(right)).mtime;
+				return lm < rm;
+			} catch {
+				return false;
+			}
+		}
+		case "-ef": {
+			try {
+				const lp = ctx.fs.stat(ctx.resolve(left));
+				const rp = ctx.fs.stat(ctx.resolve(right));
+				return ctx.resolve(left) === ctx.resolve(right);
+			} catch {
+				return false;
+			}
+		}
 		case "=~": {
 			try {
 				return new RegExp(right).test(left);
