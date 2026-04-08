@@ -48,6 +48,14 @@ interface ArithCursor {
 	pos: number;
 }
 
+function isIdentStart(c: string): boolean {
+	return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
+}
+
+function isIdentChar(c: string): boolean {
+	return isIdentStart(c) || (c >= "0" && c <= "9");
+}
+
 function tokenizeArith(expr: string, env: Environment): string[] {
 	const tokens: string[] = [];
 	let i = 0;
@@ -82,7 +90,7 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 		if (s[i] === "$") {
 			i++;
 			let name = "";
-			while (i < s.length && /[a-zA-Z0-9_]/.test(s[i])) {
+			while (i < s.length && isIdentChar(s[i])) {
 				name += s[i];
 				i++;
 			}
@@ -91,9 +99,9 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 		}
 
 		// Identifiers (bare variable names → identifier token)
-		if (/[a-zA-Z_]/.test(s[i])) {
+		if (isIdentStart(s[i])) {
 			let name = "";
-			while (i < s.length && /[a-zA-Z0-9_]/.test(s[i])) {
+			while (i < s.length && isIdentChar(s[i])) {
 				name += s[i];
 				i++;
 			}
