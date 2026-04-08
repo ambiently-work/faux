@@ -2089,3 +2089,86 @@ describe("exit codes", () => {
 		expect(r.exitCode).toBe(1);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 9: Regression tests for bug fixes
+// ═══════════════════════════════════════════════════════════════════
+
+describe("regression: paste serial delimiter cycling", () => {
+	test("-s cycles multi-char delimiter list", async () => {
+		const shell = createShell();
+		await shell.run('printf "a\\nb\\nc\\nd\\n" > /tmp/ps');
+		const r = await shell.run("paste -s -d ',;' /tmp/ps");
+		// Should alternate , and ; not insert ",;" between each
+		expect(r.stdout.trim()).toBe("a,b;c,d");
+	});
+});
+
+describe("regression: seq -w negative padding", () => {
+	test("-w pads with zeros correctly", async () => {
+		const shell = createShell();
+		const r = await shell.run("seq -w 1 10");
+		// Should zero-pad: 01, 02, ..., 10
+		expect(r.stdout).toContain("01");
+		expect(r.stdout).toContain("09");
+		expect(r.stdout).toContain("10");
+	});
+});
+
+describe("regression: let 3-char operators", () => {
+	test("**= power assignment", async () => {
+		const shell = createShell();
+		await shell.run("let 'x=2'");
+		await shell.run("let 'x**=3'");
+		const r = await shell.run("echo $x");
+		expect(r.stdout.trim()).toBe("8");
+	});
+});
+
+describe("regression: grep -H with single file", () => {
+	test("-H shows filename even for single file", async () => {
+		const shell = createShell();
+		const r = await shell.run("grep -H alpha /home/user/lines.txt");
+		expect(r.stdout).toContain("/home/user/lines.txt:");
+	});
+});
+
+describe("regression: mktemp trailing X only", () => {
+	test("only trailing X's are randomized", async () => {
+		const shell = createShell();
+		const r = await shell.run("mktemp /tmp/testXXX.XXXXXX");
+		const path = r.stdout.trim();
+		// The "test" prefix and ".XXX" middle should be preserved literally
+		expect(path).toMatch(/\/tmp\/testXXX\./);
+	});
+});
+
+describe("regression: exec >>file", () => {
+	test(">> without space doesn't create >file", async () => {
+		const shell = createShell();
+		await shell.run("exec >>/tmp/appendtest");
+		const r = await shell.run("test -f /tmp/appendtest");
+		expect(r.exitCode).toBe(0);
+		// Should NOT create a file literally named ">..."
+		const r2 = await shell.run("test -f '/tmp/>appendtest'");
+		expect(r2.exitCode).toBe(1);
+	});
+});
+
+describe("regression: stat octal mode format", () => {
+	test("mode is 4 digits not 5", async () => {
+		const shell = createShell();
+		await shell.run("chmod 644 /home/user/file.txt");
+		const r = await shell.run("stat /home/user/file.txt");
+		expect(r.stdout).toContain("0644");
+		expect(r.stdout).not.toContain("00644");
+	});
+});
+
+describe("regression: condition output preserved", () => {
+	test("if condition stdout not lost", async () => {
+		const shell = createShell();
+		const r = await shell.run("if echo checking; then echo yes; fi");
+		expect(r.stdout).toBe("checking\nyes\n");
+	});
+});
