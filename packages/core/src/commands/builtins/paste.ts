@@ -53,11 +53,15 @@ export const paste = command("paste")
 		if (serial) {
 			for (let f = 0; f < fileLines.length; f++) {
 				const lines = fileLines[f];
-				const parts: string[] = [];
-				for (let j = 0; j < lines.length; j++) {
-					parts.push(lines[j]);
+				if (lines.length === 0) {
+					ctx.stdout.writeln("");
+					continue;
 				}
-				ctx.stdout.writeln(parts.join(delimiter));
+				let result = lines[0];
+				for (let j = 1; j < lines.length; j++) {
+					result += getDelim(j - 1) + lines[j];
+				}
+				ctx.stdout.writeln(result);
 			}
 		} else {
 			// Merge line by line
