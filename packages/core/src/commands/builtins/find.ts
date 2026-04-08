@@ -375,10 +375,21 @@ function globMatch(str: string, pattern: string): boolean {
 				break;
 			case "[": {
 				let j = i + 1;
+				while (j < pattern.length && pattern[j] !== "]") j++;
+				if (j >= pattern.length) {
+					// Unclosed bracket — treat [ as literal
+					regex += "\\[";
+					break;
+				}
 				let bracket = "[";
-				while (j < pattern.length && pattern[j] !== "]") {
-					bracket += pattern[j];
-					j++;
+				let k = i + 1;
+				if (k < pattern.length && pattern[k] === "!") {
+					bracket += "^";
+					k++;
+				}
+				while (k < j) {
+					bracket += pattern[k];
+					k++;
 				}
 				bracket += "]";
 				regex += bracket;

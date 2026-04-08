@@ -483,7 +483,46 @@ function matchGlobPattern(text: string, pattern: string): boolean {
 	let starPi = -1;
 
 	while (ti < text.length) {
-		if (pi < pattern.length && (pattern[pi] === text[ti] || pattern[pi] === "?")) {
+		if (pi < pattern.length && pattern[pi] === "[") {
+			// Character class
+			let j = pi + 1;
+			let negate = false;
+			if (j < pattern.length && pattern[j] === "!") {
+				negate = true;
+				j++;
+			}
+			let found = false;
+			while (j < pattern.length && pattern[j] !== "]") {
+				if (j + 2 < pattern.length && pattern[j + 1] === "-" && pattern[j + 2] !== "]") {
+					// Range like a-z
+					if (text[ti] >= pattern[j] && text[ti] <= pattern[j + 2]) found = true;
+					j += 3;
+				} else {
+					if (text[ti] === pattern[j]) found = true;
+					j++;
+				}
+			}
+			if (j >= pattern.length) {
+				// Unclosed bracket — treat as literal
+				if (pattern[pi] === text[ti]) {
+					ti++;
+					pi++;
+				} else if (starPi >= 0) {
+					ti = ++starTi;
+					pi = starPi + 1;
+				} else {
+					return false;
+				}
+			} else if (found !== negate) {
+				ti++;
+				pi = j + 1; // skip past ]
+			} else if (starPi >= 0) {
+				ti = ++starTi;
+				pi = starPi + 1;
+			} else {
+				return false;
+			}
+		} else if (pi < pattern.length && (pattern[pi] === text[ti] || pattern[pi] === "?")) {
 			ti++;
 			pi++;
 		} else if (pi < pattern.length && pattern[pi] === "*") {

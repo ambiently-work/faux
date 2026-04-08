@@ -27,14 +27,22 @@ export function globToRegex(pattern: string): RegExp {
 				break;
 			case "[": {
 				let j = i + 1;
-				let cls = "[";
-				if (j < pattern.length && pattern[j] === "!") {
-					cls += "^";
-					j++;
+				if (j < pattern.length && pattern[j] === "!") j++;
+				while (j < pattern.length && pattern[j] !== "]") j++;
+				if (j >= pattern.length) {
+					// Unclosed bracket — treat [ as literal
+					regex += "\\[";
+					break;
 				}
-				while (j < pattern.length && pattern[j] !== "]") {
-					cls += pattern[j];
-					j++;
+				let cls = "[";
+				let k = i + 1;
+				if (k < pattern.length && pattern[k] === "!") {
+					cls += "^";
+					k++;
+				}
+				while (k < j) {
+					cls += pattern[k];
+					k++;
 				}
 				cls += "]";
 				regex += cls;
