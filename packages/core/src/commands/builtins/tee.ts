@@ -12,6 +12,7 @@ export const tee = command("tee")
 		ctx.stdout.write(content);
 
 		// Write to each file
+		let exitCode = 0;
 		for (const file of files) {
 			const resolved = ctx.resolve(file);
 			try {
@@ -23,10 +24,10 @@ export const tee = command("tee")
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err);
 				ctx.stderr.writeln("tee: " + file + ": " + msg);
-				return 1;
+				exitCode = 1;
 			}
 		}
 
-		return 0;
+		return exitCode;
 	})
 	.toHandler();

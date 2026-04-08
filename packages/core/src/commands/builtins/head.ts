@@ -59,6 +59,7 @@ export const head = command("head")
 		if (files.length === 0) {
 			processContent(ctx.stdin, null);
 		} else {
+			let exitCode = 0;
 			for (let idx = 0; idx < files.length; idx++) {
 				const file = files[idx];
 				const resolved = ctx.resolve(file);
@@ -68,9 +69,10 @@ export const head = command("head")
 					processContent(content, multiFile ? file : null);
 				} catch {
 					ctx.stderr.writeln(`head: cannot open '${file}' for reading: No such file or directory`);
-					return 1;
+					exitCode = 1;
 				}
 			}
+			return exitCode;
 		}
 
 		return 0;
