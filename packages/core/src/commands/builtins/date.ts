@@ -98,6 +98,15 @@ function formatDate(d: Date, fmt: string, utc: boolean): string {
 				case "Y":
 					result += String(utc ? d.getUTCFullYear() : d.getFullYear());
 					break;
+				case "y":
+					result += String(utc ? d.getUTCFullYear() : d.getFullYear()).slice(-2);
+					break;
+				case "C":
+					result += String(Math.floor((utc ? d.getUTCFullYear() : d.getFullYear()) / 100));
+					break;
+				case "D":
+					result += `${pad2((utc ? d.getUTCMonth() : d.getMonth()) + 1)}/${pad2(utc ? d.getUTCDate() : d.getDate())}/${String(utc ? d.getUTCFullYear() : d.getFullYear()).slice(-2)}`;
+					break;
 				case "m":
 					result += pad2((utc ? d.getUTCMonth() : d.getMonth()) + 1);
 					break;
