@@ -1070,3 +1070,103 @@ describe("arithmetic edge cases", () => {
 		expect(r.stdout.trim()).toBe("10");
 	});
 });
+
+// ─── cat trailing newline preservation ─────────────────────────────
+
+describe("cat newline handling", () => {
+	test("preserves trailing newline", async () => {
+		const shell = createShell();
+		const r = await shell.run("cat /home/user/lines.txt");
+		expect(r.stdout).toBe("alpha\nbeta\ngamma\ndelta\n");
+	});
+
+	test("preserves missing trailing newline", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n hello | cat");
+		expect(r.stdout).toBe("hello");
+	});
+});
+
+// ─── tr edge cases ─────────────────────────────────────────────────
+
+describe("tr edge cases", () => {
+	test("[:graph:] excludes space", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'a b' | tr -d '[:graph:]'");
+		expect(r.stdout.trim()).toBe("");
+		// space should remain since [:graph:] excludes it
+		expect(r.stdout).toContain(" ");
+	});
+
+	test("-s squeeze repeats", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'aabbcc' | tr -s abc");
+		expect(r.stdout.trim()).toBe("abc");
+	});
+});
+
+// ─── sed edge cases ────────────────────────────────────────────────
+
+describe("sed edge cases", () => {
+	test("preserves trailing newline", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo hello | sed 's/hello/world/'");
+		expect(r.stdout).toBe("world\n");
+	});
+
+	test("preserves missing trailing newline", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n hello | sed 's/hello/world/'");
+		expect(r.stdout).toBe("world");
+	});
+
+	test("address range", async () => {
+		const shell = createShell();
+		const r = await shell.run("sed '2,3d' /home/user/lines.txt");
+		expect(r.stdout).toBe("alpha\ndelta\n");
+	});
+});
+
+// ─── printf edge cases ─────────────────────────────────────────────
+
+describe("printf edge cases", () => {
+	test("float format", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "%.2f" 3.14159');
+		expect(r.stdout).toBe("3.14");
+	});
+
+	test("multiple args reuse format", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "%s\\n" a b c');
+		expect(r.stdout).toBe("a\nb\nc\n");
+	});
+
+	test("hex escape", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "\\x41"');
+		expect(r.stdout).toBe("A");
+	});
+});
+
+// ─── grep edge cases ───────────────────────────────────────────────
+
+describe("grep edge cases", () => {
+	test("-w whole word match", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "cat\\ncatch\\nthe cat\\n" | grep -w cat');
+		expect(r.stdout).toBe("cat\nthe cat\n");
+	});
+
+	test("-l files with matches", async () => {
+		const shell = createShell();
+		const r = await shell.run("grep -l alpha /home/user/lines.txt /home/user/mixed.txt");
+		expect(r.stdout).toContain("/home/user/lines.txt");
+	});
+
+	test("-o only matching part", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'foobar' | grep -o 'bar'");
+		expect(r.stdout.trim()).toBe("bar");
+	});
+});
