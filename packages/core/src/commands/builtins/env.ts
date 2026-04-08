@@ -7,6 +7,7 @@ export const env = command("env")
 	.argument("[args...]", "Environment settings and command")
 	.action(async (ctx, { raw }) => {
 		const modifiedEnv: Array<{ key: string; value: string }> = [];
+		const unsetVars = new Set<string>();
 		let clearEnv = false;
 		let cmdStart = -1;
 
@@ -19,8 +20,7 @@ export const env = command("env")
 			} else if (arg === "-u" || arg === "--unset") {
 				i++;
 				if (i < raw.length) {
-					modifiedEnv.push({ key: raw[i], value: "" });
-					ctx.env.unset(raw[i]);
+					unsetVars.add(raw[i]);
 				}
 				i++;
 			} else if (arg.includes("=")) {
@@ -40,6 +40,9 @@ export const env = command("env")
 					childEnv.unset(key);
 				}
 			}
+			for (const name of unsetVars) {
+				childEnv.unset(name);
+			}
 			for (const { key, value } of modifiedEnv) {
 				childEnv.set(key, value);
 				childEnv.export(key);
@@ -53,9 +56,9 @@ export const env = command("env")
 			return result.exitCode;
 		}
 
-		// No command — print environment
+		// No command — print environment (excluding unset vars)
 		for (const [key, value] of ctx.env.all()) {
-			if (ctx.env.isExported(key)) {
+			if (ctx.env.isExported(key) && !unsetVars.has(key)) {
 				ctx.stdout.writeln(`${key}=${value}`);
 			}
 		}
