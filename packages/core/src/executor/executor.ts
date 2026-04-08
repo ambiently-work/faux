@@ -1,20 +1,21 @@
-import type {
-	ArithmeticNode,
-	AssignmentNode,
-	AstNode,
-	BraceGroupNode,
-	CaseNode,
-	CommandNode,
-	ForNode,
-	FunctionNode,
-	IfNode,
-	ListNode,
-	PipelineNode,
-	SelectNode,
-	SubshellNode,
-	UntilNode,
-	WhileNode,
-	Word,
+import {
+	type ArithmeticNode,
+	type AssignmentNode,
+	type AstNode,
+	type BraceGroupNode,
+	type CaseNode,
+	type CommandNode,
+	type ForNode,
+	type FunctionNode,
+	type IfNode,
+	type ListNode,
+	type PipelineNode,
+	type SelectNode,
+	type SubshellNode,
+	type UntilNode,
+	type WhileNode,
+	type Word,
+	parse,
 } from "@faux-shell/parser";
 import type { CommandRegistry } from "../commands/registry.js";
 import type { Environment } from "../env/environment.js";
@@ -153,7 +154,6 @@ export class Executor {
 		// Check for alias expansion
 		const alias = this.env.getAlias(name);
 		if (alias) {
-			const { parse } = await import("@faux-shell/parser");
 			const aliasedCmd =
 				alias +
 				" " +

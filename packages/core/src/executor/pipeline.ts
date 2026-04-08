@@ -1,4 +1,4 @@
-import type { AstNode } from "@faux-shell/parser";
+import { type AstNode, parse } from "@faux-shell/parser";
 import type { Environment } from "../env/environment.js";
 import type { IFileSystem } from "../vfs/types.js";
 import type { CommandRegistry } from "../commands/registry.js";
@@ -82,8 +82,6 @@ export async function executeCommand(
 		stderr,
 		resolve: resolvePath,
 		subExec: async (cmd: string) => {
-			// This will be wired up by the Shell class
-			const { parse } = await import("@faux-shell/parser");
 			const ast = parse(cmd);
 			return ctx.executeNode(ast, "");
 		},
