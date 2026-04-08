@@ -6,6 +6,7 @@ export const echo = command("echo")
 	.flag("-e", "Enable interpretation of backslash escapes")
 	.flag("-E", "Disable interpretation of backslash escapes")
 	.allowUnknownFlags()
+	.stopAfterFirstPositional()
 	.action((ctx, { args, flags }) => {
 		const newline = !flags.n;
 		let interpretEscapes = !!flags.e;
