@@ -101,17 +101,22 @@ export class Executor {
 		}
 	}
 
+	private _execCtx: ExecutorContext | null = null;
+
 	private getExecCtx(): ExecutorContext {
-		return {
-			env: this.env,
-			fs: this.fs,
-			registry: this.registry,
-			subExec: async (node: AstNode) => {
-				const result = await this.executeNode(node, "");
-				return { stdout: result.stdout, exitCode: result.exitCode };
-			},
-			executeNode: (node: AstNode, stdin: string) => this.executeNode(node, stdin),
-		};
+		if (!this._execCtx) {
+			this._execCtx = {
+				env: this.env,
+				fs: this.fs,
+				registry: this.registry,
+				subExec: async (node: AstNode) => {
+					const result = await this.executeNode(node, "");
+					return { stdout: result.stdout, exitCode: result.exitCode };
+				},
+				executeNode: (node: AstNode, stdin: string) => this.executeNode(node, stdin),
+			};
+		}
+		return this._execCtx;
 	}
 
 	private resolvePath(p: string): string {
