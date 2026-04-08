@@ -7,15 +7,16 @@ function encodeBase64(input: string): string {
 	let i = 0;
 	while (i < input.length) {
 		const a = input.charCodeAt(i++);
-		const b = i < input.length ? input.charCodeAt(i++) : 0;
-		const c = i < input.length ? input.charCodeAt(i++) : 0;
-		const padding = i - input.length;
+		const bExists = i < input.length;
+		const b = bExists ? input.charCodeAt(i++) : 0;
+		const cExists = i < input.length;
+		const c = cExists ? input.charCodeAt(i++) : 0;
 
 		const triplet = (a << 16) | (b << 8) | c;
 		result += BASE64_CHARS[(triplet >> 18) & 0x3f];
 		result += BASE64_CHARS[(triplet >> 12) & 0x3f];
-		result += padding > 1 ? "=" : BASE64_CHARS[(triplet >> 6) & 0x3f];
-		result += padding > 0 ? "=" : BASE64_CHARS[triplet & 0x3f];
+		result += bExists ? BASE64_CHARS[(triplet >> 6) & 0x3f] : "=";
+		result += cExists ? BASE64_CHARS[triplet & 0x3f] : "=";
 	}
 	return result;
 }
