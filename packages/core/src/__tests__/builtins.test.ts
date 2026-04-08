@@ -1834,3 +1834,83 @@ describe("expand and unexpand", () => {
 		expect(r.stdout).toContain("x");
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 6: Filesystem Info (stat, file, realpath, tree, du)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("stat", () => {
+	test("displays file information", async () => {
+		const shell = createShell();
+		const r = await shell.run("stat /home/user/file.txt");
+		expect(r.stdout).toContain("File:");
+		expect(r.stdout).toContain("Size:");
+	});
+
+	test("shows mode as 4-digit octal", async () => {
+		const shell = createShell();
+		await shell.run("chmod 755 /home/user/file.txt");
+		const r = await shell.run("stat /home/user/file.txt");
+		expect(r.stdout).toContain("0755");
+	});
+
+	test("errors on nonexistent file", async () => {
+		const shell = createShell();
+		const r = await shell.run("stat /nonexistent");
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("No such file");
+	});
+});
+
+describe("file", () => {
+	test("detects text file", async () => {
+		const shell = createShell();
+		const r = await shell.run("file /home/user/file.txt");
+		expect(r.stdout).toContain("text");
+	});
+
+	test("detects empty file", async () => {
+		const shell = createShell();
+		const r = await shell.run("file /home/user/empty.txt");
+		expect(r.stdout).toContain("empty");
+	});
+
+	test("detects directory", async () => {
+		const shell = createShell();
+		const r = await shell.run("file /home/user");
+		expect(r.stdout).toContain("directory");
+	});
+});
+
+describe("realpath", () => {
+	test("resolves absolute path", async () => {
+		const shell = createShell();
+		const r = await shell.run("realpath /home/user/file.txt");
+		expect(r.stdout.trim()).toBe("/home/user/file.txt");
+	});
+
+	test("resolves relative path", async () => {
+		const shell = createShell();
+		await shell.run("cd /home/user");
+		const r = await shell.run("realpath file.txt");
+		expect(r.stdout.trim()).toBe("/home/user/file.txt");
+	});
+});
+
+describe("tree", () => {
+	test("shows directory structure", async () => {
+		const shell = createShell();
+		const r = await shell.run("tree /home/user");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout).toContain("file.txt");
+	});
+});
+
+describe("du", () => {
+	test("reports sizes", async () => {
+		const shell = createShell();
+		const r = await shell.run("du /home/user");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim().length).toBeGreaterThan(0);
+	});
+});
