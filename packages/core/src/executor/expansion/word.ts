@@ -59,7 +59,7 @@ async function expandPart(
 			return expandVariableOp(part.name, part.op, part.arg, env, fs, subExec);
 
 		case "variableLength": {
-			const val = env.get(part.name) ?? "";
+			const val = env.get(part.name) ?? env.getSpecial(part.name) ?? "";
 			return val.length.toString();
 		}
 
