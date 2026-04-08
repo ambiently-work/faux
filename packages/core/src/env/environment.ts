@@ -209,9 +209,10 @@ export class Environment {
 
 	/**
 	 * Return all variables (exported and non-exported).
+	 * Returns the internal map directly for iteration — do not mutate.
 	 */
-	all(): Map<string, string> {
-		return new Map(this.vars);
+	all(): ReadonlyMap<string, string> {
+		return this.vars;
 	}
 
 	/**
