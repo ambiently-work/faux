@@ -48,6 +48,7 @@ export const wc = command("wc")
 			let totalLines = 0;
 			let totalWords = 0;
 			let totalChars = 0;
+			let exitCode = 0;
 
 			for (const file of files) {
 				const resolved = ctx.resolve(file);
@@ -60,7 +61,7 @@ export const wc = command("wc")
 					ctx.stdout.writeln(formatResult(c, file));
 				} catch {
 					ctx.stderr.writeln(`wc: ${file}: No such file or directory`);
-					return 1;
+					exitCode = 1;
 				}
 			}
 
@@ -69,6 +70,8 @@ export const wc = command("wc")
 					formatResult({ lines: totalLines, words: totalWords, chars: totalChars }, "total"),
 				);
 			}
+
+			return exitCode;
 		}
 
 		return 0;

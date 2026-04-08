@@ -20,6 +20,7 @@ export const sort = command("sort")
 		const separator = (flags.fieldSeparator as string | undefined) ?? null;
 
 		let content: string;
+		let hadError = false;
 		if (files.length === 0) {
 			content = ctx.stdin;
 		} else {
@@ -30,7 +31,7 @@ export const sort = command("sort")
 					parts.push(ctx.fs.readFile(resolved));
 				} catch {
 					ctx.stderr.writeln("sort: " + file + ": No such file or directory");
-					return 1;
+					hadError = true;
 				}
 			}
 			content = parts.join("");
@@ -112,6 +113,6 @@ export const sort = command("sort")
 			ctx.stdout.writeln(line);
 		}
 
-		return 0;
+		return hadError ? 1 : 0;
 	})
 	.toHandler();

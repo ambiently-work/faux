@@ -85,6 +85,7 @@ export const cut = command("cut")
 		if (files.length === 0) {
 			processContent(ctx.stdin);
 		} else {
+			let exitCode = 0;
 			for (const file of files) {
 				const resolved = ctx.resolve(file);
 				try {
@@ -92,9 +93,10 @@ export const cut = command("cut")
 					processContent(content);
 				} catch {
 					ctx.stderr.writeln("cut: " + file + ": No such file or directory");
-					return 1;
+					exitCode = 1;
 				}
 			}
+			return exitCode;
 		}
 
 		return 0;
