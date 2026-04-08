@@ -22,8 +22,11 @@ export const wc = command("wc")
 		}
 
 		const count = (content: string) => {
-			const lines =
-				content === "" ? 0 : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+			// wc -l counts newline characters, not text lines
+			let lines = 0;
+			for (let j = 0; j < content.length; j++) {
+				if (content[j] === "\n") lines++;
+			}
 			const words = content.trim() === "" ? 0 : content.trim().split(/\s+/).length;
 			const chars = content.length;
 			return { lines, words, chars };
