@@ -207,25 +207,31 @@ export class Executor {
 	private async executeListNode(node: ListNode, stdin: string): Promise<ShellResult> {
 		const leftResult = await this.executeNode(node.left, stdin);
 
+		const combine = (right: ShellResult): ShellResult => ({
+			stdout: leftResult.stdout + right.stdout,
+			stderr: leftResult.stderr + right.stderr,
+			exitCode: right.exitCode,
+		});
+
 		switch (node.operator) {
 			case "&&":
 				if (leftResult.exitCode === 0) {
-					return this.executeNode(node.right, stdin);
+					return combine(await this.executeNode(node.right, stdin));
 				}
 				return leftResult;
 
 			case "||":
 				if (leftResult.exitCode !== 0) {
-					return this.executeNode(node.right, stdin);
+					return combine(await this.executeNode(node.right, stdin));
 				}
 				return leftResult;
 
 			case ";":
-				return this.executeNode(node.right, stdin);
+				return combine(await this.executeNode(node.right, stdin));
 
 			case "&":
 				// Background: just execute right immediately (no true async in our model)
-				return this.executeNode(node.right, stdin);
+				return combine(await this.executeNode(node.right, stdin));
 
 			default:
 				return leftResult;
