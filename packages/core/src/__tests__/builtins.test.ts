@@ -1170,3 +1170,103 @@ describe("grep edge cases", () => {
 		expect(r.stdout.trim()).toBe("bar");
 	});
 });
+
+// ─── wc edge cases ─────────────────────────────────────────────────
+
+describe("wc edge cases", () => {
+	test("-l counts newlines not text lines", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo -n hello | wc -l');
+		expect(r.stdout.trim()).toBe("0");
+	});
+
+	test("-l with trailing newline", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo hello | wc -l');
+		expect(r.stdout.trim()).toBe("1");
+	});
+
+	test("multiple files shows total", async () => {
+		const shell = createShell();
+		const r = await shell.run("wc -l /home/user/lines.txt /home/user/file.txt");
+		expect(r.stdout).toContain("total");
+	});
+
+	test("empty input", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo -n "" | wc -w');
+		expect(r.stdout.trim()).toBe("0");
+	});
+});
+
+// ─── find command ──────────────────────────────────────────────────
+
+describe("find", () => {
+	test("lists current directory", async () => {
+		const shell = createShell();
+		await shell.run("cd /home/user");
+		const r = await shell.run("find .");
+		expect(r.stdout).toContain("file.txt");
+		expect(r.stdout).toContain("lines.txt");
+	});
+
+	test("-name filters files", async () => {
+		const shell = createShell();
+		const r = await shell.run('find /home/user -name "*.txt"');
+		expect(r.stdout).toContain("file.txt");
+	});
+
+	test("-type f finds only files", async () => {
+		const shell = createShell();
+		const r = await shell.run("find /home -type f");
+		expect(r.stdout).toContain("file.txt");
+	});
+});
+
+// ─── read builtin ──────────────────────────────────────────────────
+
+describe("read builtin", () => {
+	test("reads into variable", async () => {
+		const shell = createShell();
+		await shell.run('echo hello | read x');
+		// read in pipeline runs in subshell in real bash, but in our model
+		// let's just test basic functionality
+		const r = await shell.run('echo "hello world" | { read x; echo $x; }');
+		expect(r.stdout.trim()).toBe("hello world");
+	});
+
+	test("splits into multiple variables", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo "a b c" | { read x y z; echo "$x-$y-$z"; }');
+		expect(r.stdout.trim()).toBe("a-b-c");
+	});
+});
+
+// ─── cd and pwd ────────────────────────────────────────────────────
+
+describe("cd edge cases", () => {
+	test("cd - returns to previous dir", async () => {
+		const shell = createShell();
+		await shell.run("cd /home");
+		await shell.run("cd /home/user");
+		const r = await shell.run("cd -");
+		expect(r.stdout.trim()).toBe("/home");
+		const pwd = await shell.run("pwd");
+		expect(pwd.stdout.trim()).toBe("/home");
+	});
+
+	test("cd nonexistent fails", async () => {
+		const shell = createShell();
+		const r = await shell.run("cd /nonexistent");
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("No such file");
+	});
+
+	test("cd without args goes to HOME", async () => {
+		const shell = createShell();
+		await shell.run("cd /tmp");
+		await shell.run("cd");
+		const r = await shell.run("pwd");
+		expect(r.stdout.trim()).toBe("/home/user");
+	});
+});
