@@ -984,3 +984,89 @@ describe("tilde expansion", () => {
 		expect(r.stdout.trim()).toBe("/home/user");
 	});
 });
+
+// ─── pipeline and negation ─────────────────────────────────────────
+
+describe("pipelines", () => {
+	test("pipe chains correctly", async () => {
+		const shell = createShell();
+		const r = await shell.run('printf "c\\na\\nb\\n" | sort | head -n 1');
+		expect(r.stdout.trim()).toBe("a");
+	});
+
+	test("! negates exit code", async () => {
+		const shell = createShell();
+		expect((await shell.run("! false")).exitCode).toBe(0);
+		expect((await shell.run("! true")).exitCode).toBe(1);
+	});
+});
+
+// ─── parameter expansion edge cases ────────────────────────────────
+
+describe("parameter expansion edge cases", () => {
+	test("${#var} returns string length", async () => {
+		const shell = createShell();
+		await shell.run("x=hello");
+		const r = await shell.run('echo ${#x}');
+		expect(r.stdout.trim()).toBe("5");
+	});
+
+	test("greedy suffix removal ${var%%pattern}", async () => {
+		const shell = createShell();
+		await shell.run("f=file.tar.gz");
+		const r = await shell.run('echo ${f%%.*}');
+		expect(r.stdout.trim()).toBe("file");
+	});
+
+	test("greedy prefix removal ${var##pattern}", async () => {
+		const shell = createShell();
+		await shell.run("p=/home/user/file");
+		const r = await shell.run('echo ${p##*/}');
+		expect(r.stdout.trim()).toBe("file");
+	});
+
+	test("assign default ${var:=default}", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo ${NEWVAR:=assigned}');
+		expect(r.stdout.trim()).toBe("assigned");
+		const r2 = await shell.run('echo $NEWVAR');
+		expect(r2.stdout.trim()).toBe("assigned");
+	});
+});
+
+// ─── arithmetic edge cases ─────────────────────────────────────────
+
+describe("arithmetic edge cases", () => {
+	test("modulo", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo $((17 % 5))");
+		expect(r.stdout.trim()).toBe("2");
+	});
+
+	test("bitwise AND", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo $((12 & 10))");
+		expect(r.stdout.trim()).toBe("8");
+	});
+
+	test("exponentiation", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo $((2 ** 10))");
+		expect(r.stdout.trim()).toBe("1024");
+	});
+
+	test("comparison returns 0 or 1", async () => {
+		const shell = createShell();
+		const r1 = await shell.run("echo $((5 > 3))");
+		expect(r1.stdout.trim()).toBe("1");
+		const r2 = await shell.run("echo $((2 > 7))");
+		expect(r2.stdout.trim()).toBe("0");
+	});
+
+	test("let command", async () => {
+		const shell = createShell();
+		await shell.run("let 'x=10'");
+		const r = await shell.run("echo $x");
+		expect(r.stdout.trim()).toBe("10");
+	});
+});
