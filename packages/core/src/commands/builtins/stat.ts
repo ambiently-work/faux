@@ -26,7 +26,7 @@ export const stat = command("stat")
 						? "symbolic link"
 						: "regular file";
 
-				const modeOctal = "0" + (s.mode & 0o7777).toString(8).padStart(4, "0");
+				const modeOctal = "0" + (s.mode & 0o7777).toString(8).padStart(3, "0");
 
 				ctx.stdout.writeln(`  File: ${file}`);
 				ctx.stdout.writeln(
