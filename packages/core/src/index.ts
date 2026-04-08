@@ -50,11 +50,14 @@ export { ReadOnlyFileSystem } from "./vfs/adapters/read-only.js";
 export { VirtualFileSystem } from "./vfs/filesystem.js";
 export { useWasmGlob } from "./vfs/glob.js";
 export type { IFileSystem, VfsStats } from "./vfs/types.js";
+export { ShellBridge } from "./wasm-bridge.js";
 export type {
 	WasmArithmeticModule,
 	WasmBraceModule,
+	WasmExecutorModule,
 	WasmGlobModule,
 	WasmGlobToRegexModule,
+	WasmParserModule,
 	WasmRuntimeModule,
 } from "./wasm-interfaces.js";
-export { useWasmRuntime } from "./wasm-runtime.js";
+export { getWasmExecutor, getWasmParser, useWasmRuntime } from "./wasm-runtime.js";

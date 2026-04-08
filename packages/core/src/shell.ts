@@ -16,8 +16,9 @@ import { CommandTracker, type TrackerStats } from "./tracker.js";
 import type { ShellResult } from "./types.js";
 import { VirtualFileSystem } from "./vfs/filesystem.js";
 import type { IFileSystem } from "./vfs/types.js";
+import { ShellBridge } from "./wasm-bridge.js";
 import type { WasmRuntimeModule } from "./wasm-interfaces.js";
-import { useWasmRuntime } from "./wasm-runtime.js";
+import { getWasmExecutor, getWasmParser, useWasmRuntime } from "./wasm-runtime.js";
 
 export interface ShellOptions {
 	/** Initial environment variables */
@@ -51,11 +52,14 @@ export class Shell {
 	private vfs: VirtualFileSystem;
 	private registry: CommandRegistry;
 	private executor: Executor;
-	private parseFn: (input: string) => AstNode;
+	private parseFn!: (input: string) => AstNode;
 	private hookRegistry: HookRegistry;
 	private commandTracker: CommandTracker | null;
 
 	private wasmReady: Promise<void> | null = null;
+	private wasmExecuteFn:
+		| ((ast: unknown, bridge: unknown, stdin: string) => Promise<unknown>)
+		| null = null;
 
 	constructor(options?: ShellOptions) {
 		const opts = options ?? {};
@@ -84,12 +88,32 @@ export class Shell {
 			if (opts.wasm === true) {
 				this.wasmReady = import("@faux-shell/wasm")
 					.then((mod) => mod.loadWasmRuntime())
-					.then((runtime) => useWasmRuntime(runtime))
+					.then((runtime) => {
+						useWasmRuntime(runtime);
+						// Wire up WASM parser if available
+						const wasmParser = getWasmParser(runtime);
+						if (wasmParser) {
+							this.parseFn = wasmParser as (input: string) => AstNode;
+						}
+						// Wire up WASM executor if available
+						const wasmExecutor = getWasmExecutor(runtime);
+						if (wasmExecutor) {
+							this.wasmExecuteFn = wasmExecutor;
+						}
+					})
 					.catch(() => {
 						// @faux-shell/wasm not installed — silently fall back to TS
 					});
 			} else {
 				useWasmRuntime(opts.wasm);
+				const wasmParser = getWasmParser(opts.wasm);
+				if (wasmParser) {
+					this.parseFn = wasmParser as (input: string) => AstNode;
+				}
+				const wasmExecutor = getWasmExecutor(opts.wasm);
+				if (wasmExecutor) {
+					this.wasmExecuteFn = wasmExecutor;
+				}
 			}
 		}
 
@@ -103,7 +127,7 @@ export class Shell {
 			this.registry.registerAll(opts.commands);
 		}
 
-		this.parseFn = opts.parser ?? parse;
+		this.parseFn ??= opts.parser ?? parse;
 		this.executor = new Executor(this.env, this.vfs, this.registry);
 		this.hookRegistry = new HookRegistry();
 		this.commandTracker = opts.tracking ? new CommandTracker(opts.maxHistory) : null;
@@ -134,10 +158,19 @@ export class Shell {
 		let result: ShellResult;
 		try {
 			const ast = this.parseFn(effectiveCommand);
-			result = await this.executor.execute(ast);
+
+			if (this.wasmExecuteFn) {
+				// Use WASM executor with bridge
+				const bridge = new ShellBridge(this.env, this.vfs, this.registry);
+				const wasmResult = await this.wasmExecuteFn(ast, bridge, "");
+				result = wasmResult as ShellResult;
+			} else {
+				// Use TS executor
+				result = await this.executor.execute(ast);
+			}
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
-			result = { stdout: "", stderr: message + "\n", exitCode: 2 };
+			result = { stdout: "", stderr: `${message}\n`, exitCode: 2 };
 		}
 
 		const durationMs = performance.now() - t0;
@@ -246,8 +279,8 @@ export class Shell {
 		const resolved = path.startsWith("/")
 			? path
 			: this.env.cwd === "/"
-				? "/" + path
-				: this.env.cwd + "/" + path;
+				? `/${path}`
+				: `${this.env.cwd}/${path}`;
 		this.env.cwd = resolved;
 		this.env.set("PWD", resolved);
 		return this;
