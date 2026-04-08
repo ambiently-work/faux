@@ -80,7 +80,7 @@ export class Environment {
 
 	export(name: string, value?: string): void {
 		if (value !== undefined) {
-			this.vars.set(name, value);
+			this.set(name, value);
 		}
 		this.exported.add(name);
 	}
