@@ -106,11 +106,11 @@ awk, bc, column, comm, date, df, diff, du, eval, exec, expr, file, fmt, fold, ge
 
 | Batch | Status | Commit | Tests Added |
 |-------|--------|--------|-------------|
-| 1     | TODO   |        |             |
-| 2     | TODO   |        |             |
-| 3     | TODO   |        |             |
-| 4     | TODO   |        |             |
-| 5     | TODO   |        |             |
-| 6     | TODO   |        |             |
-| 7     | TODO   |        |             |
-| 8     | TODO   |        |             |
+| 1     | DONE   | d21c600 | 12          |
+| 2     | DONE   | 8d287e8 | 11          |
+| 3     | DONE   | e8ffb0f | 15          |
+| 4     | DONE   | 533dc39 | 12          |
+| 5     | DONE   | 5da2288 | 9           |
+| 6     | DONE   | 2314f40 | 10          |
+| 7     | DONE   | a6f7acd | 10          |
+| 8     | DONE   | 7da70b8 | 12          |
