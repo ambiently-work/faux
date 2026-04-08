@@ -48,6 +48,8 @@ function humanSize(bytes: number): string {
 
 function formatDate(mtime: number): string {
 	const d = new Date(mtime);
+	const now = Date.now();
+	const sixMonthsMs = 180 * 24 * 60 * 60 * 1000;
 	const months = [
 		"Jan",
 		"Feb",
@@ -64,6 +66,10 @@ function formatDate(mtime: number): string {
 	];
 	const mon = months[d.getMonth()];
 	const day = String(d.getDate()).padStart(2, " ");
+	if (Math.abs(now - mtime) > sixMonthsMs) {
+		// Older than 6 months: show year instead of time
+		return `${mon} ${day}  ${d.getFullYear()}`;
+	}
 	const hours = String(d.getHours()).padStart(2, "0");
 	const mins = String(d.getMinutes()).padStart(2, "0");
 	return `${mon} ${day} ${hours}:${mins}`;
