@@ -90,13 +90,15 @@ export const read = command("read")
 			line = line.replace(/\\(.)/g, "$1");
 		}
 
+		const ifs = ctx.env.get("IFS") ?? " \t\n";
+
 		// Handle -a (array mode)
 		if (arrayName) {
-			const words = splitWords(line);
+			const words = splitWords(line, ifs);
 			for (let j = 0; j < words.length; j++) {
 				ctx.env.set(`${arrayName}_${j}`, words[j]);
 			}
-			ctx.env.set(arrayName, words.join(" "));
+			ctx.env.set(arrayName, words.join(ifs.charAt(0) || " "));
 			return line.length === 0 && input.length === 0 ? 1 : 0;
 		}
 
@@ -105,12 +107,12 @@ export const read = command("read")
 			varNames.push("REPLY");
 		}
 
-		const words = splitWords(line);
+		const words = splitWords(line, ifs);
 
 		for (let j = 0; j < varNames.length; j++) {
 			if (j === varNames.length - 1) {
 				// Last variable gets remainder
-				ctx.env.set(varNames[j], words.slice(j).join(" "));
+				ctx.env.set(varNames[j], words.slice(j).join(ifs.charAt(0) || " "));
 			} else {
 				ctx.env.set(varNames[j], words[j] ?? "");
 			}
@@ -121,21 +123,44 @@ export const read = command("read")
 	})
 	.toHandler();
 
-function splitWords(line: string): string[] {
+function splitWords(line: string, ifs: string): string[] {
+	if (ifs === "") return line.length > 0 ? [line] : [];
+
+	const ifsWhitespace = new Set<string>();
+	const ifsNonWhitespace = new Set<string>();
+	for (const ch of ifs) {
+		if (ch === " " || ch === "\t" || ch === "\n") {
+			ifsWhitespace.add(ch);
+		} else {
+			ifsNonWhitespace.add(ch);
+		}
+	}
+
+	const isIfs = (ch: string) => ifsWhitespace.has(ch) || ifsNonWhitespace.has(ch);
 	const result: string[] = [];
 	let current = "";
-	let inWhitespace = true;
+	let i = 0;
 
-	for (const ch of line) {
-		if (ch === " " || ch === "\t") {
-			if (!inWhitespace && current.length > 0) {
+	// Skip leading IFS whitespace
+	while (i < line.length && ifsWhitespace.has(line[i])) i++;
+
+	while (i < line.length) {
+		if (ifsNonWhitespace.has(line[i])) {
+			// Non-whitespace IFS char always delimits a field
+			result.push(current);
+			current = "";
+			i++;
+			// Skip trailing IFS whitespace around the delimiter
+			while (i < line.length && ifsWhitespace.has(line[i])) i++;
+		} else if (ifsWhitespace.has(line[i])) {
+			if (current.length > 0) {
 				result.push(current);
 				current = "";
 			}
-			inWhitespace = true;
+			while (i < line.length && ifsWhitespace.has(line[i])) i++;
 		} else {
-			inWhitespace = false;
-			current += ch;
+			current += line[i];
+			i++;
 		}
 	}
 
