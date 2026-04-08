@@ -1766,3 +1766,71 @@ describe("type and which", () => {
 		expect(r.stdout.trim()).toBe("echo");
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 5: Advanced Text (expr, base64, expand/unexpand, strings)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("expr", () => {
+	test("integer addition", async () => {
+		const shell = createShell();
+		const r = await shell.run("expr 2 + 3");
+		expect(r.stdout.trim()).toBe("5");
+	});
+
+	test("integer subtraction", async () => {
+		const shell = createShell();
+		const r = await shell.run("expr 10 - 3");
+		expect(r.stdout.trim()).toBe("7");
+	});
+
+	test("string length", async () => {
+		const shell = createShell();
+		const r = await shell.run("expr length hello");
+		expect(r.stdout.trim()).toBe("5");
+	});
+
+	test("comparison returns 1 for true", async () => {
+		const shell = createShell();
+		const r = await shell.run("expr 5 '>' 3");
+		expect(r.stdout.trim()).toBe("1");
+	});
+});
+
+describe("base64", () => {
+	test("encode produces base64 output", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n test | base64");
+		expect(r.exitCode).toBe(0);
+		expect(r.stdout.trim().length).toBeGreaterThan(0);
+	});
+
+	test("-d decodes base64", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo -n test | base64 | base64 -d");
+		expect(r.stdout).toContain("test");
+	});
+});
+
+describe("expand and unexpand", () => {
+	test("expand converts tabs to spaces", async () => {
+		const shell = createShell();
+		const r = await shell.run("printf 'a\\tb\\n' | expand");
+		expect(r.stdout).not.toContain("\t");
+		expect(r.stdout).toContain("a");
+		expect(r.stdout).toContain("b");
+	});
+
+	test("expand -t sets tab width", async () => {
+		const shell = createShell();
+		const r = await shell.run("printf '\\tx\\n' | expand -t 4");
+		expect(r.stdout).toBe("    x\n");
+	});
+
+	test("unexpand converts spaces to tabs", async () => {
+		const shell = createShell();
+		const r = await shell.run("printf '        x\\n' | unexpand");
+		expect(r.stdout).toContain("\t");
+		expect(r.stdout).toContain("x");
+	});
+});
