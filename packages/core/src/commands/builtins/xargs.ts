@@ -62,10 +62,14 @@ export const xargs = command("xargs")
 		}
 
 		let lastExitCode = 0;
+		const shellQuote = (s: string): string =>
+			"'" + s.replace(/'/g, "'\\''") + "'";
 
 		if (replaceStr) {
 			for (const item of items) {
-				const cmd = commandArgs.map((a) => a.split(replaceStr!).join(item)).join(" ");
+				const cmd = commandArgs
+					.map((a) => shellQuote(a.split(replaceStr!).join(item)))
+					.join(" ");
 				const result = await ctx.subExec(cmd);
 				ctx.stdout.write(result.stdout);
 				if (result.stderr) {
@@ -76,7 +80,7 @@ export const xargs = command("xargs")
 		} else if (maxArgs > 0) {
 			for (let j = 0; j < items.length; j += maxArgs) {
 				const batch = items.slice(j, j + maxArgs);
-				const cmd = [...commandArgs, ...batch].join(" ");
+				const cmd = [...commandArgs, ...batch].map(shellQuote).join(" ");
 				const result = await ctx.subExec(cmd);
 				ctx.stdout.write(result.stdout);
 				if (result.stderr) {
@@ -85,7 +89,7 @@ export const xargs = command("xargs")
 				lastExitCode = result.exitCode;
 			}
 		} else {
-			const cmd = [...commandArgs, ...items].join(" ");
+			const cmd = [...commandArgs, ...items].map(shellQuote).join(" ");
 			const result = await ctx.subExec(cmd);
 			ctx.stdout.write(result.stdout);
 			if (result.stderr) {

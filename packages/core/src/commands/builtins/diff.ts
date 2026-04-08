@@ -167,8 +167,8 @@ function groupIntoHunks(ops: EditOp[], a: string[], b: string[], context: number
 		for (let i = start; i <= end; i++) {
 			const op = ops[i];
 			if (i === start) {
-				oldStart = op.type === "insert" ? op.oldIdx + 1 : op.oldIdx + 1;
-				newStart = op.type === "delete" ? op.newIdx + 1 : op.newIdx + 1;
+				oldStart = op.oldIdx + 1;
+				newStart = op.newIdx + 1;
 			}
 			if (op.type === "equal") {
 				lines.push(" " + a[op.oldIdx]);
