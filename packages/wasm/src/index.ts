@@ -13,6 +13,8 @@ export async function loadWasmRuntime(): Promise<WasmRuntimeModule> {
 		evaluateArithmetic: wasm.evaluate_arithmetic,
 		expandBraces: (word: string) => Array.from(wasm.expand_braces(word)) as string[],
 		globToRegex: wasm.glob_to_regex,
+		parse: wasm.parse,
+		execute: wasm.execute,
 	};
 }
 
@@ -36,5 +38,7 @@ export async function loadWasmRuntimeFromModule(
 		evaluateArithmetic: wasm.evaluate_arithmetic,
 		expandBraces: (word: string) => Array.from(wasm.expand_braces(word)) as string[],
 		globToRegex: wasm.glob_to_regex,
+		parse: wasm.parse,
+		execute: wasm.execute,
 	};
 }
