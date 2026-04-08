@@ -7,6 +7,8 @@ export function useWasmGlobToRegex(module: WasmGlobToRegexModule): void {
 	wasmGlobToRegex = (pattern) => module.globToRegex(pattern);
 }
 
+const REGEX_META = new Set(".*+?^${}()|[]\\".split(""));
+
 export function globToRegex(pattern: string): RegExp {
 	if (wasmGlobToRegex) {
 		try {
@@ -56,7 +58,7 @@ export function globToRegex(pattern: string): RegExp {
 				}
 				break;
 			default:
-				regex += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				regex += REGEX_META.has(c) ? "\\" + c : c;
 				break;
 		}
 	}
