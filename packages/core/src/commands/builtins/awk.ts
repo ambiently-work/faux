@@ -1018,6 +1018,9 @@ class AwkRuntime {
 		this.splitRecord(line);
 	}
 
+	private _cachedFsSep: string | null = null;
+	private _cachedFsRegex: RegExp | null = null;
+
 	splitRecord(line: string): void {
 		const fs = this.toStr(this.vars.get("FS"));
 		let parts: string[];
@@ -1027,11 +1030,15 @@ class AwkRuntime {
 		} else if (fs.length === 1) {
 			parts = line.split(fs);
 		} else {
-			try {
-				parts = line.split(new RegExp(fs));
-			} catch {
-				parts = line.split(fs);
+			if (this._cachedFsSep !== fs) {
+				this._cachedFsSep = fs;
+				try {
+					this._cachedFsRegex = new RegExp(fs);
+				} catch {
+					this._cachedFsRegex = null;
+				}
 			}
+			parts = this._cachedFsRegex ? line.split(this._cachedFsRegex) : line.split(fs);
 		}
 
 		this.fields = [line, ...parts];
