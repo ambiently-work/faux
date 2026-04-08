@@ -924,9 +924,14 @@ export class Parser {
 			if (c === "~" && parts.length === 0 && literal.length === 0) {
 				i++;
 				let user = "";
-				while (i < input.length && isNameCharStatic(input[i])) {
-					user += input[i];
+				if (i < input.length && (input[i] === "+" || input[i] === "-")) {
+					user = input[i];
 					i++;
+				} else {
+					while (i < input.length && isNameCharStatic(input[i])) {
+						user += input[i];
+						i++;
+					}
 				}
 				parts.push({ type: "tilde", user });
 				continue;
@@ -1266,6 +1271,12 @@ export class Parser {
 
 		// $VAR — simple variable
 		if (isSpecialParamChar(c)) {
+			i++;
+			return { part: { type: "variable", name: c }, end: i };
+		}
+
+		// $1-$9 — positional parameters (single digit only without braces)
+		if (c >= "1" && c <= "9") {
 			i++;
 			return { part: { type: "variable", name: c }, end: i };
 		}

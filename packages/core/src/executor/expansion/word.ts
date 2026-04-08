@@ -80,6 +80,12 @@ async function expandPart(
 			return part.pattern; // Glob expansion happens at command level
 
 		case "tilde": {
+			if (part.user === "+") {
+				return env.get("PWD") ?? env.cwd;
+			}
+			if (part.user === "-") {
+				return env.get("OLDPWD") ?? "";
+			}
 			if (part.user === "" || part.user === env.get("USER")) {
 				return env.get("HOME") ?? "/root";
 			}
