@@ -12,6 +12,10 @@ export async function expandWord(
 	fs: IFileSystem,
 	subExec: SubExecFn,
 ): Promise<string> {
+	// Fast path: single-part words (most common case) avoid array allocation
+	if (word.length === 1) {
+		return expandPart(word[0], env, fs, subExec);
+	}
 	const parts: string[] = [];
 	for (const part of word) {
 		parts.push(await expandPart(part, env, fs, subExec));
