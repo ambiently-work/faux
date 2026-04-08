@@ -47,6 +47,16 @@ function tokenizeLet(expr: string): string[] {
 			continue;
 		}
 
+		// Three-char operators (must check before two-char)
+		if (i + 2 < expr.length) {
+			const three = expr[i] + expr[i + 1] + expr[i + 2];
+			if (three === "**=" || three === "<<=" || three === ">>=") {
+				tokens.push(three);
+				i += 3;
+				continue;
+			}
+		}
+
 		// Two-char operators
 		if (i + 1 < expr.length) {
 			const two = expr[i] + expr[i + 1];
@@ -172,6 +182,9 @@ function parseLetAssign(tokens: string[], cur: Cursor, env: LetEnv): number {
 					break;
 				case "%=":
 					result = right === 0 ? 0 : current % right;
+					break;
+				case "**=":
+					result = current ** right;
 					break;
 				case "&=":
 					result = current & right;
