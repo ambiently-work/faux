@@ -624,4 +624,131 @@ describe("redirects", () => {
 		const r = await shell.run("cat <<< 'hello world'");
 		expect(r.stdout).toContain("hello world");
 	});
+
+	test("2>&1 merges stderr into stdout", async () => {
+		const shell = createShell();
+		const r = await shell.run("cat /nonexistent 2>&1");
+		expect(r.stdout).toContain("No such file");
+		expect(r.stderr).toBe("");
+	});
+
+	test("stderr redirect 2> to file", async () => {
+		const shell = createShell();
+		await shell.run("cat /nonexistent 2> /tmp/err");
+		const r = await shell.run("cat /tmp/err");
+		expect(r.stdout).toContain("No such file");
+	});
+
+	test("&> redirects both stdout and stderr", async () => {
+		const shell = createShell();
+		await shell.run("echo hello &> /tmp/both");
+		const r = await shell.run("cat /tmp/both");
+		expect(r.stdout).toContain("hello");
+	});
+});
+
+// ─── cp / mv into directories ──────────────────────────────────────
+
+describe("cp and mv", () => {
+	test("cp file into directory", async () => {
+		const shell = createShell();
+		await shell.run("mkdir /tmp/dest");
+		await shell.run("echo content > /tmp/src.txt");
+		await shell.run("cp /tmp/src.txt /tmp/dest");
+		const r = await shell.run("cat /tmp/dest/src.txt");
+		expect(r.stdout).toBe("content\n");
+	});
+
+	test("mv file into directory", async () => {
+		const shell = createShell();
+		await shell.run("mkdir /tmp/dest");
+		await shell.run("echo content > /tmp/src.txt");
+		await shell.run("mv /tmp/src.txt /tmp/dest");
+		const r = await shell.run("cat /tmp/dest/src.txt");
+		expect(r.stdout).toBe("content\n");
+	});
+});
+
+// ─── env / export / readonly ───────────────────────────────────────
+
+describe("env and variables", () => {
+	test("env -u does not modify parent shell", async () => {
+		const shell = createShell();
+		await shell.run("export FOO=bar");
+		await shell.run("env -u FOO echo hello");
+		const r = await shell.run("echo $FOO");
+		expect(r.stdout.trim()).toBe("bar");
+	});
+
+	test("readonly prevents modification", async () => {
+		const shell = createShell();
+		await shell.run("readonly X=42");
+		const r = await shell.run("X=99");
+		expect(r.exitCode).not.toBe(0);
+	});
+
+	test("temporary prefix assignment", async () => {
+		const shell = createShell();
+		await shell.run("X=old");
+		await shell.run("X=temp echo hello");
+		const r = await shell.run("echo $X");
+		expect(r.stdout.trim()).toBe("old");
+	});
+
+	test("SECONDS variable increases", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo $SECONDS");
+		const val = Number.parseInt(r.stdout.trim(), 10);
+		expect(val).toBeGreaterThanOrEqual(0);
+	});
+});
+
+// ─── error handling ────────────────────────────────────────────────
+
+describe("error handling", () => {
+	test("command not found exits 127", async () => {
+		const shell = createShell();
+		const r = await shell.run("nonexistent_command");
+		expect(r.exitCode).toBe(127);
+		expect(r.stderr).toContain("command not found");
+	});
+
+	test("wc continues on missing file", async () => {
+		const shell = createShell();
+		const r = await shell.run("wc -l /nonexistent /home/user/lines.txt");
+		expect(r.stderr).toContain("No such file");
+		expect(r.stdout).toContain("4");
+	});
+
+	test("set -eo pipefail combined flags", async () => {
+		const shell = createShell();
+		const r = await shell.run("set -eo pipefail");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("$? reflects last exit code", async () => {
+		const shell = createShell();
+		await shell.run("false");
+		const r = await shell.run("echo $?");
+		expect(r.stdout.trim()).toBe("1");
+	});
+});
+
+// ─── subshells and functions ───────────────────────────────────────
+
+describe("subshells and functions", () => {
+	test("subshell isolates variables", async () => {
+		const shell = createShell();
+		await shell.run("X=outer");
+		await shell.run("(X=inner)");
+		const r = await shell.run("echo $X");
+		expect(r.stdout.trim()).toBe("outer");
+	});
+
+	test("function definition and call", async () => {
+		const shell = createShell();
+		await shell.run("greet() { echo hello $1; }");
+		const r = await shell.run("greet world");
+		expect(r.stdout.trim()).toBe("hello world");
+	});
 });
