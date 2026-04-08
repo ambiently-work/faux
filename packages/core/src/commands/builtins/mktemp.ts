@@ -10,16 +10,18 @@ export const mktemp = command("mktemp")
 		const useTemplate = !!flags.t;
 		const template = args[0] || "tmp.XXXXXXXXXX";
 
-		// Generate random suffix
+		// Find trailing X's to replace (only trailing consecutive X's are randomized)
 		const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-		let name = "";
-		for (let j = 0; j < template.length; j++) {
-			if (template[j] === "X") {
-				name += chars[Math.floor(Math.random() * chars.length)];
-			} else {
-				name += template[j];
-			}
+		let trailingXStart = template.length;
+		while (trailingXStart > 0 && template[trailingXStart - 1] === "X") {
+			trailingXStart--;
 		}
+		const prefix = template.slice(0, trailingXStart);
+		let suffix = "";
+		for (let j = trailingXStart; j < template.length; j++) {
+			suffix += chars[Math.floor(Math.random() * chars.length)];
+		}
+		const name = prefix + suffix;
 
 		let path: string;
 		if (useTemplate || !template.includes("/")) {
