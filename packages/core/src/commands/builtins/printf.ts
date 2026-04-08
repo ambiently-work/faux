@@ -41,6 +41,12 @@ export const printf = command("printf")
 						continue;
 					}
 					const spec = parseFormatSpec(format, i + 1);
+					if (spec.widthFromArg) {
+						spec.width = Number.parseInt(getArg(), 10) || 0;
+					}
+					if (spec.precisionFromArg) {
+						spec.precision = Number.parseInt(getArg(), 10) || 0;
+					}
 					const arg = getArg();
 					result += formatValue(spec, arg);
 					i = spec.next;
@@ -61,7 +67,9 @@ export const printf = command("printf")
 interface FormatSpec {
 	flags: string;
 	width: number;
+	widthFromArg: boolean;
 	precision: number;
+	precisionFromArg: boolean;
 	conversion: string;
 	next: number;
 }
@@ -128,21 +136,33 @@ function parseFormatSpec(s: string, start: number): FormatSpec {
 		i++;
 	}
 	let width = 0;
-	while (i < s.length && s[i] >= "0" && s[i] <= "9") {
-		width = width * 10 + Number.parseInt(s[i], 10);
+	let widthFromArg = false;
+	if (i < s.length && s[i] === "*") {
+		widthFromArg = true;
 		i++;
-	}
-	let precision = -1;
-	if (i < s.length && s[i] === ".") {
-		i++;
-		precision = 0;
+	} else {
 		while (i < s.length && s[i] >= "0" && s[i] <= "9") {
-			precision = precision * 10 + Number.parseInt(s[i], 10);
+			width = width * 10 + Number.parseInt(s[i], 10);
 			i++;
 		}
 	}
+	let precision = -1;
+	let precisionFromArg = false;
+	if (i < s.length && s[i] === ".") {
+		i++;
+		if (i < s.length && s[i] === "*") {
+			precisionFromArg = true;
+			i++;
+		} else {
+			precision = 0;
+			while (i < s.length && s[i] >= "0" && s[i] <= "9") {
+				precision = precision * 10 + Number.parseInt(s[i], 10);
+				i++;
+			}
+		}
+	}
 	const conversion = i < s.length ? s[i] : "s";
-	return { flags, width, precision, conversion, next: i + 1 };
+	return { flags, width, widthFromArg, precision, precisionFromArg, conversion, next: i + 1 };
 }
 
 function formatValue(spec: FormatSpec, arg: string): string {
