@@ -172,17 +172,8 @@ export class Environment {
 	 */
 	fork(): Environment {
 		const child = new Environment();
-		child.vars = new Map();
-		child.exported = new Set();
-
-		// Copy all exported variables
-		for (const name of this.exported) {
-			const value = this.vars.get(name);
-			if (value !== undefined) {
-				child.vars.set(name, value);
-				child.exported.add(name);
-			}
-		}
+		child.vars = new Map(this.vars);
+		child.exported = new Set(this.exported);
 
 		child._cwd = this._cwd;
 		child._lastExitCode = this._lastExitCode;
