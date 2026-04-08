@@ -124,6 +124,17 @@ export async function executeCommand(
 				}
 				stdoutStr = "";
 				stderrStr = "";
+			} else if (redirect.op === ">&") {
+				const targetFd = Number.parseInt(redirect.target, 10);
+				if (redirect.fd === 2 && targetFd === 1) {
+					// 2>&1: merge stderr into stdout
+					stdoutStr += stderrStr;
+					stderrStr = "";
+				} else if ((redirect.fd === 1 || redirect.fd === -1) && targetFd === 2) {
+					// >&2 or 1>&2: merge stdout into stderr
+					stderrStr += stdoutStr;
+					stdoutStr = "";
+				}
 			}
 		}
 
