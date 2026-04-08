@@ -12,7 +12,7 @@ export function evaluateArithmetic(expr: string, env: Environment): number {
 		return wasmEvalArith(resolveArithVars(expr, env));
 	}
 	const tokens = tokenizeArith(expr, env);
-	const result = parseArithExpr(tokens, { pos: 0 });
+	const result = parseArithExpr(tokens, { pos: 0 }, env);
 	return result;
 }
 
@@ -78,7 +78,7 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 			continue;
 		}
 
-		// Variables
+		// Variables ($name → identifier token)
 		if (s[i] === "$") {
 			i++;
 			let name = "";
@@ -86,20 +86,18 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 				name += s[i];
 				i++;
 			}
-			const val = env.get(name) ?? "0";
-			tokens.push(val);
+			tokens.push("@" + name);
 			continue;
 		}
 
-		// Identifiers (variable names without $)
+		// Identifiers (bare variable names → identifier token)
 		if (/[a-zA-Z_]/.test(s[i])) {
 			let name = "";
 			while (i < s.length && /[a-zA-Z0-9_]/.test(s[i])) {
 				name += s[i];
 				i++;
 			}
-			const val = env.get(name) ?? "0";
-			tokens.push(val);
+			tokens.push("@" + name);
 			continue;
 		}
 
@@ -140,91 +138,147 @@ function tokenizeArith(expr: string, env: Environment): string[] {
 	return tokens;
 }
 
-function parseArithExpr(tokens: string[], cur: ArithCursor): number {
-	return parseAssign(tokens, cur);
+const ASSIGN_OPS = new Set(["=", "+=", "-=", "*=", "/=", "%="]);
+
+function resolveVar(tok: string, env: Environment): number {
+	if (tok.startsWith("@")) {
+		const val = env.get(tok.slice(1)) ?? "0";
+		const num = Number(val);
+		return Number.isNaN(num) ? 0 : Math.trunc(num);
+	}
+	if (tok.startsWith("0x") || tok.startsWith("0X")) {
+		return Number.parseInt(tok, 16) || 0;
+	}
+	if (tok.startsWith("0") && tok.length > 1 && !tok.includes(".")) {
+		return Number.parseInt(tok, 8) || 0;
+	}
+	const num = Number(tok);
+	return Number.isNaN(num) ? 0 : Math.trunc(num);
 }
 
-function parseAssign(tokens: string[], cur: ArithCursor): number {
-	const val = parseTernary(tokens, cur);
-	return val;
+function parseArithExpr(tokens: string[], cur: ArithCursor, env: Environment): number {
+	return parseAssign(tokens, cur, env);
 }
 
-function parseTernary(tokens: string[], cur: ArithCursor): number {
-	const cond = parseLogicalOr(tokens, cur);
+function parseAssign(tokens: string[], cur: ArithCursor, env: Environment): number {
+	// Check for identifier followed by assignment operator
+	if (
+		cur.pos < tokens.length &&
+		tokens[cur.pos].startsWith("@") &&
+		cur.pos + 1 < tokens.length &&
+		ASSIGN_OPS.has(tokens[cur.pos + 1])
+	) {
+		const name = tokens[cur.pos].slice(1);
+		cur.pos++;
+		const op = tokens[cur.pos];
+		cur.pos++;
+		const rhs = parseAssign(tokens, cur, env);
+		const current = Number(env.get(name) ?? "0") || 0;
+		let result: number;
+		switch (op) {
+			case "=":
+				result = rhs;
+				break;
+			case "+=":
+				result = current + rhs;
+				break;
+			case "-=":
+				result = current - rhs;
+				break;
+			case "*=":
+				result = current * rhs;
+				break;
+			case "/=":
+				result = rhs !== 0 ? Math.trunc(current / rhs) : 0;
+				break;
+			case "%=":
+				result = rhs !== 0 ? current % rhs : 0;
+				break;
+			default:
+				result = rhs;
+		}
+		env.set(name, String(result));
+		return result;
+	}
+	return parseTernary(tokens, cur, env);
+}
+
+function parseTernary(tokens: string[], cur: ArithCursor, env: Environment): number {
+	const cond = parseLogicalOr(tokens, cur, env);
 	if (cur.pos < tokens.length && tokens[cur.pos] === "?") {
 		cur.pos++;
-		const trueVal = parseArithExpr(tokens, cur);
+		const trueVal = parseArithExpr(tokens, cur, env);
 		if (cur.pos < tokens.length && tokens[cur.pos] === ":") cur.pos++;
-		const falseVal = parseArithExpr(tokens, cur);
+		const falseVal = parseArithExpr(tokens, cur, env);
 		return cond !== 0 ? trueVal : falseVal;
 	}
 	return cond;
 }
 
-function parseLogicalOr(tokens: string[], cur: ArithCursor): number {
-	let left = parseLogicalAnd(tokens, cur);
+function parseLogicalOr(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseLogicalAnd(tokens, cur, env);
 	while (cur.pos < tokens.length && tokens[cur.pos] === "||") {
 		cur.pos++;
-		const right = parseLogicalAnd(tokens, cur);
+		const right = parseLogicalAnd(tokens, cur, env);
 		left = left !== 0 || right !== 0 ? 1 : 0;
 	}
 	return left;
 }
 
-function parseLogicalAnd(tokens: string[], cur: ArithCursor): number {
-	let left = parseBitwiseOr(tokens, cur);
+function parseLogicalAnd(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseBitwiseOr(tokens, cur, env);
 	while (cur.pos < tokens.length && tokens[cur.pos] === "&&") {
 		cur.pos++;
-		const right = parseBitwiseOr(tokens, cur);
+		const right = parseBitwiseOr(tokens, cur, env);
 		left = left !== 0 && right !== 0 ? 1 : 0;
 	}
 	return left;
 }
 
-function parseBitwiseOr(tokens: string[], cur: ArithCursor): number {
-	let left = parseBitwiseXor(tokens, cur);
+function parseBitwiseOr(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseBitwiseXor(tokens, cur, env);
 	while (cur.pos < tokens.length && tokens[cur.pos] === "|") {
 		cur.pos++;
-		left = left | parseBitwiseXor(tokens, cur);
+		left = left | parseBitwiseXor(tokens, cur, env);
 	}
 	return left;
 }
 
-function parseBitwiseXor(tokens: string[], cur: ArithCursor): number {
-	let left = parseBitwiseAnd(tokens, cur);
+function parseBitwiseXor(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseBitwiseAnd(tokens, cur, env);
 	while (cur.pos < tokens.length && tokens[cur.pos] === "^") {
 		cur.pos++;
-		left = left ^ parseBitwiseAnd(tokens, cur);
+		left = left ^ parseBitwiseAnd(tokens, cur, env);
 	}
 	return left;
 }
 
-function parseBitwiseAnd(tokens: string[], cur: ArithCursor): number {
-	let left = parseEquality(tokens, cur);
+function parseBitwiseAnd(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseEquality(tokens, cur, env);
 	while (cur.pos < tokens.length && tokens[cur.pos] === "&") {
 		cur.pos++;
-		left = left & parseEquality(tokens, cur);
+		left = left & parseEquality(tokens, cur, env);
 	}
 	return left;
 }
 
-function parseEquality(tokens: string[], cur: ArithCursor): number {
-	let left = parseRelational(tokens, cur);
+function parseEquality(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseRelational(tokens, cur, env);
 	while (cur.pos < tokens.length && (tokens[cur.pos] === "==" || tokens[cur.pos] === "!=")) {
 		const op = tokens[cur.pos];
 		cur.pos++;
-		const right = parseRelational(tokens, cur);
+		const right = parseRelational(tokens, cur, env);
 		left = op === "==" ? (left === right ? 1 : 0) : left !== right ? 1 : 0;
 	}
 	return left;
 }
 
-function parseRelational(tokens: string[], cur: ArithCursor): number {
-	let left = parseShift(tokens, cur);
+function parseRelational(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseShift(tokens, cur, env);
 	while (cur.pos < tokens.length && ["<", ">", "<=", ">="].includes(tokens[cur.pos])) {
 		const op = tokens[cur.pos];
 		cur.pos++;
-		const right = parseShift(tokens, cur);
+		const right = parseShift(tokens, cur, env);
 		switch (op) {
 			case "<":
 				left = left < right ? 1 : 0;
@@ -243,37 +297,37 @@ function parseRelational(tokens: string[], cur: ArithCursor): number {
 	return left;
 }
 
-function parseShift(tokens: string[], cur: ArithCursor): number {
-	let left = parseAddSub(tokens, cur);
+function parseShift(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseAddSub(tokens, cur, env);
 	while (cur.pos < tokens.length && (tokens[cur.pos] === "<<" || tokens[cur.pos] === ">>")) {
 		const op = tokens[cur.pos];
 		cur.pos++;
-		const right = parseAddSub(tokens, cur);
+		const right = parseAddSub(tokens, cur, env);
 		left = op === "<<" ? left << right : left >> right;
 	}
 	return left;
 }
 
-function parseAddSub(tokens: string[], cur: ArithCursor): number {
-	let left = parseMulDiv(tokens, cur);
+function parseAddSub(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseMulDiv(tokens, cur, env);
 	while (cur.pos < tokens.length && (tokens[cur.pos] === "+" || tokens[cur.pos] === "-")) {
 		const op = tokens[cur.pos];
 		cur.pos++;
-		const right = parseMulDiv(tokens, cur);
+		const right = parseMulDiv(tokens, cur, env);
 		left = op === "+" ? left + right : left - right;
 	}
 	return left;
 }
 
-function parseMulDiv(tokens: string[], cur: ArithCursor): number {
-	let left = parseExponent(tokens, cur);
+function parseMulDiv(tokens: string[], cur: ArithCursor, env: Environment): number {
+	let left = parseExponent(tokens, cur, env);
 	while (
 		cur.pos < tokens.length &&
 		(tokens[cur.pos] === "*" || tokens[cur.pos] === "/" || tokens[cur.pos] === "%")
 	) {
 		const op = tokens[cur.pos];
 		cur.pos++;
-		const right = parseExponent(tokens, cur);
+		const right = parseExponent(tokens, cur, env);
 		if (op === "*") left = left * right;
 		else if (op === "/") left = right !== 0 ? Math.trunc(left / right) : 0;
 		else left = right !== 0 ? left % right : 0;
@@ -281,44 +335,61 @@ function parseMulDiv(tokens: string[], cur: ArithCursor): number {
 	return left;
 }
 
-function parseExponent(tokens: string[], cur: ArithCursor): number {
-	const base = parseUnary(tokens, cur);
+function parseExponent(tokens: string[], cur: ArithCursor, env: Environment): number {
+	const base = parseUnary(tokens, cur, env);
 	if (cur.pos < tokens.length && tokens[cur.pos] === "**") {
 		cur.pos++;
-		const exp = parseExponent(tokens, cur);
+		const exp = parseExponent(tokens, cur, env);
 		return base ** exp;
 	}
 	return base;
 }
 
-function parseUnary(tokens: string[], cur: ArithCursor): number {
+function parseUnary(tokens: string[], cur: ArithCursor, env: Environment): number {
 	if (cur.pos < tokens.length) {
 		if (tokens[cur.pos] === "-") {
 			cur.pos++;
-			return -parseUnary(tokens, cur);
+			return -parseUnary(tokens, cur, env);
 		}
 		if (tokens[cur.pos] === "+") {
 			cur.pos++;
-			return parseUnary(tokens, cur);
+			return parseUnary(tokens, cur, env);
 		}
 		if (tokens[cur.pos] === "!") {
 			cur.pos++;
-			return parseUnary(tokens, cur) === 0 ? 1 : 0;
+			return parseUnary(tokens, cur, env) === 0 ? 1 : 0;
 		}
 		if (tokens[cur.pos] === "~") {
 			cur.pos++;
-			return ~parseUnary(tokens, cur);
+			return ~parseUnary(tokens, cur, env);
+		}
+		// Pre-increment/decrement
+		if (tokens[cur.pos] === "++" && cur.pos + 1 < tokens.length && tokens[cur.pos + 1].startsWith("@")) {
+			cur.pos++;
+			const name = tokens[cur.pos].slice(1);
+			cur.pos++;
+			const val = (Number(env.get(name) ?? "0") || 0) + 1;
+			env.set(name, String(val));
+			return val;
+		}
+		if (tokens[cur.pos] === "--" && cur.pos + 1 < tokens.length && tokens[cur.pos + 1].startsWith("@")) {
+			cur.pos++;
+			const name = tokens[cur.pos].slice(1);
+			cur.pos++;
+			const val = (Number(env.get(name) ?? "0") || 0) - 1;
+			env.set(name, String(val));
+			return val;
 		}
 	}
-	return parsePrimaryArith(tokens, cur);
+	return parsePrimaryArith(tokens, cur, env);
 }
 
-function parsePrimaryArith(tokens: string[], cur: ArithCursor): number {
+function parsePrimaryArith(tokens: string[], cur: ArithCursor, env: Environment): number {
 	if (cur.pos >= tokens.length) return 0;
 
 	if (tokens[cur.pos] === "(") {
 		cur.pos++;
-		const val = parseArithExpr(tokens, cur);
+		const val = parseArithExpr(tokens, cur, env);
 		if (cur.pos < tokens.length && tokens[cur.pos] === ")") cur.pos++;
 		return val;
 	}
@@ -326,13 +397,17 @@ function parsePrimaryArith(tokens: string[], cur: ArithCursor): number {
 	const tok = tokens[cur.pos];
 	cur.pos++;
 
-	// Parse number (decimal, hex, octal)
-	if (tok.startsWith("0x") || tok.startsWith("0X")) {
-		return Number.parseInt(tok, 16) || 0;
+	// Post-increment/decrement
+	if (tok.startsWith("@") && cur.pos < tokens.length) {
+		if (tokens[cur.pos] === "++" || tokens[cur.pos] === "--") {
+			const name = tok.slice(1);
+			const current = Number(env.get(name) ?? "0") || 0;
+			const delta = tokens[cur.pos] === "++" ? 1 : -1;
+			cur.pos++;
+			env.set(name, String(current + delta));
+			return current; // post: return old value
+		}
 	}
-	if (tok.startsWith("0") && tok.length > 1 && !tok.includes(".")) {
-		return Number.parseInt(tok, 8) || 0;
-	}
-	const num = Number(tok);
-	return Number.isNaN(num) ? 0 : Math.trunc(num);
+
+	return resolveVar(tok, env);
 }
