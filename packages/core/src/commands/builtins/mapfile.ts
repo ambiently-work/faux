@@ -45,18 +45,18 @@ export const mapfile = command("mapfile")
 			lines = lines.slice(0, maxCount);
 		}
 
-		// Store lines
+		// Store lines (bash mapfile preserves trailing newlines unless -t)
 		for (let j = 0; j < lines.length; j++) {
-			let line = lines[j];
-			if (trimTrailing) {
-				// Remove trailing newline (already split, so just trim \n)
-				line = line.replace(/\n$/, "");
-			}
+			const line = trimTrailing ? lines[j] : lines[j] + "\n";
 			ctx.env.set(`${arrayName}_${j}`, line);
 		}
 
-		// Store count
-		ctx.env.set(arrayName, String(lines.length));
+		// Main variable holds first element (like bash ${MAPFILE} → ${MAPFILE[0]})
+		if (lines.length > 0) {
+			ctx.env.set(arrayName, trimTrailing ? lines[0] : lines[0] + "\n");
+		} else {
+			ctx.env.set(arrayName, "");
+		}
 
 		return 0;
 	})
