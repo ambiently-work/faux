@@ -100,7 +100,10 @@ export const sort = command("sort")
 			const seen = new Set<string>();
 			const uniqueLines: string[] = [];
 			for (const line of lines) {
-				const key = foldCase ? getKey(line).toLowerCase() : getKey(line);
+				let key = getKey(line);
+				if (foldCase) key = key.toLowerCase();
+				if (ignoreLeadingBlanks) key = key.trimStart();
+				if (numeric) key = String(Number.parseFloat(key) || 0);
 				if (!seen.has(key)) {
 					seen.add(key);
 					uniqueLines.push(line);
