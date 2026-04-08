@@ -128,9 +128,21 @@ export class LayeredFileSystem implements IFileSystem {
 	}
 
 	cp(src: string, dest: string, options?: { recursive?: boolean }): void {
-		// Read from any layer, write to top
-		const content = this.readFile(src);
-		this.writable.writeFile(dest, content);
+		const srcStat = this.stat(src);
+		if (srcStat.isDirectory()) {
+			if (!options?.recursive) {
+				throw new Error(`EISDIR: illegal operation on a directory: ${src}`);
+			}
+			this.writable.mkdir(dest, { recursive: true });
+			for (const entry of this.readDir(src)) {
+				const childSrc = src === "/" ? "/" + entry : src + "/" + entry;
+				const childDest = dest === "/" ? "/" + entry : dest + "/" + entry;
+				this.cp(childSrc, childDest, options);
+			}
+		} else {
+			const content = this.readFile(src);
+			this.writable.writeFile(dest, content);
+		}
 	}
 
 	mv(src: string, dest: string): void {
