@@ -223,7 +223,7 @@ export const grep = command("grep")
 
 					const content = ctx.fs.readFile(resolved);
 					regex.lastIndex = 0;
-					const displayName = multiFile ? file : null;
+					const displayName = multiFile || gFlags.withFilename ? file : null;
 					const result = grepContent(ctx, content, regex, gFlags, displayName);
 					if (result.matched) anyMatch = true;
 				} catch {
