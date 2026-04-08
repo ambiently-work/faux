@@ -1349,3 +1349,106 @@ describe("export and declare", () => {
 		expect(r.stdout.trim()).toBe("42");
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 1: Core File Operations (rm, ln, touch, mkdir)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("rm", () => {
+	test("removes a file", async () => {
+		const shell = createShell();
+		await shell.run("touch /tmp/rmme");
+		await shell.run("rm /tmp/rmme");
+		const r = await shell.run("test -f /tmp/rmme");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("-r removes directory recursively", async () => {
+		const shell = createShell();
+		await shell.run("mkdir -p /tmp/rmdir/sub");
+		await shell.run("touch /tmp/rmdir/sub/file");
+		await shell.run("rm -r /tmp/rmdir");
+		const r = await shell.run("test -d /tmp/rmdir");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("-f ignores nonexistent files", async () => {
+		const shell = createShell();
+		const r = await shell.run("rm -f /tmp/nonexistent");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("errors on missing file without -f", async () => {
+		const shell = createShell();
+		const r = await shell.run("rm /tmp/nonexistent");
+		expect(r.exitCode).not.toBe(0);
+	});
+});
+
+describe("ln", () => {
+	test("-s creates symlink", async () => {
+		const shell = createShell();
+		await shell.run("echo content > /tmp/target");
+		await shell.run("ln -s /tmp/target /tmp/link");
+		const r = await shell.run("cat /tmp/link");
+		expect(r.stdout).toContain("content");
+	});
+
+	test("-f force overwrites existing link", async () => {
+		const shell = createShell();
+		await shell.run("echo old > /tmp/old");
+		await shell.run("echo new > /tmp/new");
+		await shell.run("ln -s /tmp/old /tmp/mylink");
+		await shell.run("ln -sf /tmp/new /tmp/mylink");
+		const r = await shell.run("cat /tmp/mylink");
+		expect(r.stdout).toContain("new");
+	});
+});
+
+describe("touch", () => {
+	test("creates new empty file", async () => {
+		const shell = createShell();
+		await shell.run("touch /tmp/newfile");
+		const r = await shell.run("test -f /tmp/newfile");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("does not overwrite existing file content", async () => {
+		const shell = createShell();
+		await shell.run("echo hello > /tmp/existing");
+		await shell.run("touch /tmp/existing");
+		const r = await shell.run("cat /tmp/existing");
+		expect(r.stdout).toContain("hello");
+	});
+
+	test("creates multiple files", async () => {
+		const shell = createShell();
+		await shell.run("touch /tmp/a /tmp/b /tmp/c");
+		expect((await shell.run("test -f /tmp/a")).exitCode).toBe(0);
+		expect((await shell.run("test -f /tmp/b")).exitCode).toBe(0);
+		expect((await shell.run("test -f /tmp/c")).exitCode).toBe(0);
+	});
+});
+
+describe("mkdir", () => {
+	test("creates directory", async () => {
+		const shell = createShell();
+		await shell.run("mkdir /tmp/newdir");
+		const r = await shell.run("test -d /tmp/newdir");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("-p creates nested directories", async () => {
+		const shell = createShell();
+		await shell.run("mkdir -p /tmp/a/b/c/d");
+		const r = await shell.run("test -d /tmp/a/b/c/d");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("-p does not error on existing directory", async () => {
+		const shell = createShell();
+		await shell.run("mkdir -p /tmp/exists");
+		const r = await shell.run("mkdir -p /tmp/exists");
+		expect(r.exitCode).toBe(0);
+	});
+});
