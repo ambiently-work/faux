@@ -1,4 +1,5 @@
 import type { IFileSystem, VfsStats } from "../types.js";
+import { globMatch } from "../glob.js";
 
 /**
  * A simple flat filesystem backed by a plain object/Map.
@@ -179,10 +180,13 @@ export class ObjectFileSystem implements IFileSystem {
 	}
 
 	glob(pattern: string, options?: { cwd?: string }): string[] {
-		// Simple glob: just match all files
+		const cwd = options?.cwd ?? "/";
+		const absPattern = pattern.startsWith("/") ? pattern : (cwd === "/" ? "/" + pattern : cwd + "/" + pattern);
 		const results: string[] = [];
 		for (const key of this.files.keys()) {
-			results.push(key);
+			if (globMatch(absPattern, key)) {
+				results.push(key);
+			}
 		}
 		return results.sort();
 	}

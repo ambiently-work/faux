@@ -55,15 +55,17 @@ export const unalias = command("unalias")
 			return 0;
 		}
 
+		let exitCode = 0;
 		for (const arg of args) {
 			const existing = ctx.env.getAlias(arg);
 			if (existing === undefined) {
 				ctx.stderr.writeln(`unalias: ${arg}: not found`);
-				return 1;
+				exitCode = 1;
+			} else {
+				ctx.env.removeAlias(arg);
 			}
-			ctx.env.removeAlias(arg);
 		}
 
-		return 0;
+		return exitCode;
 	})
 	.toHandler();
