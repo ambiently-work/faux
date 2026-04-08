@@ -18,3 +18,21 @@ export function useWasmRuntime(module: Partial<WasmRuntimeModule>): void {
 	if (module.expandBraces) useWasmBraces(module as WasmBraceModule);
 	if (module.globToRegex) useWasmGlobToRegex(module as WasmGlobToRegexModule);
 }
+
+/**
+ * Extract the WASM parser function if available.
+ */
+export function getWasmParser(
+	module: Partial<WasmRuntimeModule>,
+): ((input: string) => unknown) | null {
+	return module.parse ?? null;
+}
+
+/**
+ * Extract the WASM executor function if available.
+ */
+export function getWasmExecutor(
+	module: Partial<WasmRuntimeModule>,
+): ((ast: unknown, bridge: unknown, stdin: string) => Promise<unknown>) | null {
+	return module.execute ?? null;
+}

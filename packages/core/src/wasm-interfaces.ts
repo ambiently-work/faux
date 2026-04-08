@@ -18,9 +18,21 @@ export interface WasmGlobToRegexModule {
 	globToRegex(pattern: string): string;
 }
 
+/** WASM-accelerable shell parser. Returns AstNode-compatible JSON. */
+export interface WasmParserModule {
+	parse(input: string): unknown;
+}
+
+/** WASM-accelerable full executor. Takes AST + bridge, returns ShellResult. */
+export interface WasmExecutorModule {
+	execute(ast: unknown, bridge: unknown, stdin: string): Promise<unknown>;
+}
+
 /** Combined interface for a full WASM runtime module. */
 export interface WasmRuntimeModule
 	extends WasmGlobModule,
 		WasmArithmeticModule,
 		WasmBraceModule,
-		WasmGlobToRegexModule {}
+		WasmGlobToRegexModule,
+		Partial<WasmParserModule>,
+		Partial<WasmExecutorModule> {}
