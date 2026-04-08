@@ -1992,3 +1992,100 @@ describe("ulimit", () => {
 		expect(r.stdout.length).toBeGreaterThan(0);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 8: Edge Cases & Integration
+// ═══════════════════════════════════════════════════════════════════
+
+describe("nested control flow", () => {
+	test("for inside if", async () => {
+		const shell = createShell();
+		const r = await shell.run("if true; then for i in a b; do echo $i; done; fi");
+		expect(r.stdout).toBe("a\nb\n");
+	});
+
+	test("nested for loops", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2; do for j in a b; do echo $i$j; done; done",
+		);
+		expect(r.stdout).toBe("1a\n1b\n2a\n2b\n");
+	});
+
+	test("while with break", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"x=0; while true; do x=$((x+1)); if [ $x -gt 3 ]; then break; fi; echo $x; done",
+		);
+		expect(r.stdout).toContain("1");
+		expect(r.stdout).toContain("3");
+	});
+});
+
+describe("multiple redirects", () => {
+	test("stdout and stderr to different files", async () => {
+		const shell = createShell();
+		await shell.run("echo ok > /tmp/out 2> /tmp/err");
+		const out = await shell.run("cat /tmp/out");
+		expect(out.stdout).toContain("ok");
+	});
+});
+
+describe("complex pipelines", () => {
+	test("sort | uniq -c pipeline", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			'printf "b\\na\\nb\\na\\na\\n" | sort | uniq -c',
+		);
+		expect(r.stdout).toContain("3");
+		expect(r.stdout).toContain("a");
+		expect(r.stdout).toContain("2");
+		expect(r.stdout).toContain("b");
+	});
+
+	test("grep | wc -l counts matches", async () => {
+		const shell = createShell();
+		const r = await shell.run("grep -i hello /home/user/mixed.txt | wc -l");
+		expect(r.stdout.trim()).toBe("3");
+	});
+
+	test("awk in pipeline", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo 'a b c' | awk '{print $3}' | tr c C");
+		expect(r.stdout.trim()).toBe("C");
+	});
+});
+
+describe("quoting edge cases", () => {
+	test("single quotes preserve literals", async () => {
+		const shell = createShell();
+		const r = await shell.run("echo '$HOME'");
+		expect(r.stdout.trim()).toBe("$HOME");
+	});
+
+	test("double quotes allow variable expansion", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo "$HOME"');
+		expect(r.stdout.trim()).toBe("/home/user");
+	});
+
+	test("empty string argument preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run('echo "" hello');
+		expect(r.stdout.trim()).toBe("hello");
+	});
+});
+
+describe("exit codes", () => {
+	test("false in pipeline", async () => {
+		const shell = createShell();
+		const r = await shell.run("false | echo ok");
+		expect(r.stdout).toContain("ok");
+	});
+
+	test("last command determines exit code in ;", async () => {
+		const shell = createShell();
+		const r = await shell.run("true; false");
+		expect(r.exitCode).toBe(1);
+	});
+});
