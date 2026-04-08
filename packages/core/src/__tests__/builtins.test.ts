@@ -1270,3 +1270,82 @@ describe("cd edge cases", () => {
 		expect(r.stdout.trim()).toBe("/home/user");
 	});
 });
+
+// ─── subshell variable inheritance ─────────────────────────────────
+
+describe("subshell variable inheritance", () => {
+	test("non-exported vars visible in subshell", async () => {
+		const shell = createShell();
+		await shell.run("myvar=secret");
+		const r = await shell.run("(echo $myvar)");
+		expect(r.stdout.trim()).toBe("secret");
+	});
+
+	test("subshell changes don't leak to parent", async () => {
+		const shell = createShell();
+		await shell.run("myvar=original");
+		await shell.run("(myvar=changed)");
+		const r = await shell.run("echo $myvar");
+		expect(r.stdout.trim()).toBe("original");
+	});
+});
+
+// ─── ls command ────────────────────────────────────────────────────
+
+describe("ls", () => {
+	test("lists directory contents", async () => {
+		const shell = createShell();
+		const r = await shell.run("ls /home/user");
+		expect(r.stdout).toContain("file.txt");
+		expect(r.stdout).toContain("lines.txt");
+	});
+
+	test("-a shows hidden files", async () => {
+		const shell = createShell({
+			"/home/user/.hidden": "secret",
+			"/home/user/visible": "public",
+		});
+		const r = await shell.run("ls -a /home/user");
+		expect(r.stdout).toContain(".hidden");
+		expect(r.stdout).toContain("visible");
+		expect(r.stdout).toContain(".");
+		expect(r.stdout).toContain("..");
+	});
+});
+
+// ─── alias ─────────────────────────────────────────────────────────
+
+describe("alias", () => {
+	test("define and use alias", async () => {
+		const shell = createShell();
+		await shell.run("alias hi='echo hello'");
+		const r = await shell.run("hi");
+		expect(r.stdout.trim()).toBe("hello");
+	});
+
+	test("unalias removes alias", async () => {
+		const shell = createShell();
+		await shell.run("alias hi='echo hello'");
+		await shell.run("unalias hi");
+		const r = await shell.run("hi");
+		expect(r.exitCode).toBe(127);
+	});
+});
+
+// ─── export and declare ────────────────────────────────────────────
+
+describe("export and declare", () => {
+	test("export -p lists exports", async () => {
+		const shell = createShell();
+		await shell.run("export FOO=bar");
+		const r = await shell.run("export -p");
+		expect(r.stdout).toContain("FOO");
+	});
+
+	test("declare -i treats as integer", async () => {
+		const shell = createShell();
+		await shell.run("declare -i x=42");
+		const r = await shell.run("echo $x");
+		expect(r.stdout.trim()).toBe("42");
+	});
+});
