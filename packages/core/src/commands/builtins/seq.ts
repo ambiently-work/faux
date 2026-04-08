@@ -40,6 +40,14 @@ export const seq = command("seq")
 			width = Math.max(firstStr.length, lastStr.length);
 		}
 
+		const zeroPad = (s: string): string => {
+			if (!padWidth) return s;
+			if (s.startsWith("-")) {
+				return "-" + s.slice(1).padStart(width - 1, "0");
+			}
+			return s.padStart(width, "0");
+		};
+
 		const results: string[] = [];
 		if (increment > 0) {
 			for (let n = first; n <= last + 1e-10; n += increment) {
@@ -52,10 +60,7 @@ export const seq = command("seq")
 								(String(increment).split(".")[1] ?? "").length,
 							) || 0,
 						);
-				if (padWidth) {
-					s = s.padStart(width, "0");
-				}
-				results.push(s);
+				results.push(zeroPad(s));
 			}
 		} else {
 			for (let n = first; n >= last - 1e-10; n += increment) {
@@ -68,10 +73,7 @@ export const seq = command("seq")
 								(String(Math.abs(increment)).split(".")[1] ?? "").length,
 							) || 0,
 						);
-				if (padWidth) {
-					s = s.padStart(width, "0");
-				}
-				results.push(s);
+				results.push(zeroPad(s));
 			}
 		}
 
