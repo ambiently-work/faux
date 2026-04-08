@@ -93,6 +93,25 @@ export const set = command("set")
 				const enabling = arg[0] === "-";
 				for (let j = 1; j < arg.length; j++) {
 					const ch = arg[j];
+					if (ch === "o") {
+						// -o/+o within combined flags: consume next arg as option name
+						i++;
+						if (i >= args.length) {
+							ctx.stderr.writeln("set: option requires an argument -- o");
+							return 1;
+						}
+						const optName = args[i];
+						if (!(optName in LONG_OPTIONS)) {
+							ctx.stderr.writeln(`set: invalid option name: ${optName}`);
+							return 1;
+						}
+						if (enabling) {
+							ctx.env.setOption(optName);
+						} else {
+							ctx.env.unsetOption(optName);
+						}
+						continue;
+					}
 					const longName = SHORT_TO_LONG[ch];
 					if (longName) {
 						if (enabling) {
