@@ -2380,3 +2380,103 @@ describe("printenv", () => {
 		expect(r.exitCode).toBe(1);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 12: exit/return fix, let, mapfile, getopts, remaining gaps
+// ═══════════════════════════════════════════════════════════════════
+
+describe("exit builtin", () => {
+	test("exit 0 returns 0", async () => {
+		const shell = createShell();
+		const r = await shell.run("exit 0");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("exit 42 returns 42", async () => {
+		const shell = createShell();
+		const r = await shell.run("exit 42");
+		expect(r.exitCode).toBe(42);
+	});
+
+	test("exit without arg uses last exit code", async () => {
+		const shell = createShell();
+		const r = await shell.run("false; exit");
+		expect(r.exitCode).toBe(1);
+	});
+});
+
+describe("return builtin", () => {
+	test("return 0 in function", async () => {
+		const shell = createShell();
+		await shell.run("f() { return 0; }");
+		const r = await shell.run("f");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("return 42 in function", async () => {
+		const shell = createShell();
+		await shell.run("f() { return 42; }");
+		const r = await shell.run("f");
+		expect(r.exitCode).toBe(42);
+	});
+});
+
+describe("let builtin", () => {
+	test("basic assignment", async () => {
+		const shell = createShell();
+		await shell.run("let 'x=10'");
+		const r = await shell.run("echo $x");
+		expect(r.stdout.trim()).toBe("10");
+	});
+
+	test("compound += assignment", async () => {
+		const shell = createShell();
+		await shell.run("let 'x=5'");
+		await shell.run("let 'x+=3'");
+		const r = await shell.run("echo $x");
+		expect(r.stdout.trim()).toBe("8");
+	});
+
+	test("returns 1 when result is 0 (falsy)", async () => {
+		const shell = createShell();
+		const r = await shell.run("let 'x=0'");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("returns 0 when result is nonzero (truthy)", async () => {
+		const shell = createShell();
+		const r = await shell.run("let 'x=5'");
+		expect(r.exitCode).toBe(0);
+	});
+});
+
+describe("mapfile/readarray", () => {
+	test("reads lines into array variables", async () => {
+		const shell = createShell();
+		await shell.run('printf "a\\nb\\nc\\n" | mapfile ARR');
+		const r = await shell.run("echo $ARR_0");
+		expect(r.stdout).toContain("a");
+	});
+
+	test("-t strips trailing newlines", async () => {
+		const shell = createShell();
+		await shell.run('printf "hello\\nworld\\n" | mapfile -t M');
+		const r = await shell.run("echo $M_0");
+		expect(r.stdout.trim()).toBe("hello");
+	});
+});
+
+describe("pwd builtin", () => {
+	test("shows current directory", async () => {
+		const shell = createShell();
+		const r = await shell.run("pwd");
+		expect(r.stdout.trim()).toBe("/");
+	});
+
+	test("reflects cd", async () => {
+		const shell = createShell();
+		await shell.run("cd /home/user");
+		const r = await shell.run("pwd");
+		expect(r.stdout.trim()).toBe("/home/user");
+	});
+});
