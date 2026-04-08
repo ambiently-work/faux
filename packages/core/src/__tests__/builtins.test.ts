@@ -1558,3 +1558,120 @@ describe("fold", () => {
 		expect(lines[1]).toBe("fghij");
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Batch 3: Shell Builtins (eval, exec, source, shift, trap, set/shopt)
+// ═══════════════════════════════════════════════════════════════════
+
+describe("eval", () => {
+	test("evaluates string as command", async () => {
+		const shell = createShell();
+		const r = await shell.run("eval 'echo hello world'");
+		expect(r.stdout.trim()).toBe("hello world");
+	});
+
+	test("evaluates concatenated args", async () => {
+		const shell = createShell();
+		await shell.run("cmd='echo hi'");
+		const r = await shell.run("eval $cmd");
+		expect(r.stdout.trim()).toBe("hi");
+	});
+});
+
+describe("exec", () => {
+	test("runs command", async () => {
+		const shell = createShell();
+		const r = await shell.run("exec echo hello");
+		expect(r.stdout.trim()).toBe("hello");
+	});
+
+	test("redirect creates file", async () => {
+		const shell = createShell();
+		await shell.run("exec > /tmp/execout");
+		const r = await shell.run("test -f /tmp/execout");
+		expect(r.exitCode).toBe(0);
+	});
+});
+
+describe("source", () => {
+	test("executes file in current shell", async () => {
+		const shell = createShell({ "/tmp/script.sh": "X=sourced\n" });
+		await shell.run("source /tmp/script.sh");
+		const r = await shell.run("echo $X");
+		expect(r.stdout.trim()).toBe("sourced");
+	});
+
+	test("dot command works like source", async () => {
+		const shell = createShell({ "/tmp/s.sh": "Y=dotted\n" });
+		await shell.run(". /tmp/s.sh");
+		const r = await shell.run("echo $Y");
+		expect(r.stdout.trim()).toBe("dotted");
+	});
+
+	test("returns error for missing file", async () => {
+		const shell = createShell();
+		const r = await shell.run("source /nonexistent");
+		expect(r.exitCode).toBe(1);
+	});
+});
+
+describe("shift", () => {
+	test("shifts positional params in function", async () => {
+		const shell = createShell();
+		await shell.run('f() { shift; echo $1; }');
+		const r = await shell.run("f a b c");
+		expect(r.stdout.trim()).toBe("b");
+	});
+
+	test("shift N shifts multiple", async () => {
+		const shell = createShell();
+		await shell.run('f() { shift 2; echo $1; }');
+		const r = await shell.run("f a b c");
+		expect(r.stdout.trim()).toBe("c");
+	});
+});
+
+describe("trap", () => {
+	test("lists traps when no args", async () => {
+		const shell = createShell();
+		const r = await shell.run("trap");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("-l lists signals", async () => {
+		const shell = createShell();
+		const r = await shell.run("trap -l");
+		expect(r.stdout).toContain("HUP");
+		expect(r.stdout).toContain("INT");
+		expect(r.stdout).toContain("TERM");
+	});
+});
+
+describe("set and shopt", () => {
+	test("set -- sets positional params", async () => {
+		const shell = createShell();
+		await shell.run('f() { set -- x y z; echo $2; }');
+		const r = await shell.run("f");
+		expect(r.stdout.trim()).toBe("y");
+	});
+
+	test("set -o lists options", async () => {
+		const shell = createShell();
+		const r = await shell.run("set -o");
+		expect(r.stdout).toContain("errexit");
+		expect(r.stdout).toContain("nounset");
+	});
+
+	test("shopt -s enables option", async () => {
+		const shell = createShell();
+		const r = await shell.run("shopt -s extglob");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("shopt -u disables option", async () => {
+		const shell = createShell();
+		await shell.run("shopt -s dotglob");
+		const r = await shell.run("shopt -u dotglob");
+		expect(r.exitCode).toBe(0);
+	});
+});
