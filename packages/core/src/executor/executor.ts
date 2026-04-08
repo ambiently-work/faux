@@ -318,15 +318,15 @@ export class Executor {
 		}
 
 		let lastResult: ShellResult = { stdout: "", stderr: "", exitCode: 0 };
-		let allStdout = "";
-		let allStderr = "";
+		const stdoutParts: string[] = [];
+		const stderrParts: string[] = [];
 
 		for (const word of words) {
 			this.env.set(node.variable, word);
 			try {
 				const result = await this.executeNode(node.body, stdin);
-				allStdout += result.stdout;
-				allStderr += result.stderr;
+				if (result.stdout) stdoutParts.push(result.stdout);
+				if (result.stderr) stderrParts.push(result.stderr);
 				lastResult = result;
 			} catch (e) {
 				if (e instanceof BreakSignal) {
@@ -341,26 +341,26 @@ export class Executor {
 			}
 		}
 
-		return { stdout: allStdout, stderr: allStderr, exitCode: lastResult.exitCode };
+		return { stdout: stdoutParts.join(""), stderr: stderrParts.join(""), exitCode: lastResult.exitCode };
 	}
 
 	private async executeWhileNode(node: WhileNode, stdin: string): Promise<ShellResult> {
 		let lastResult: ShellResult = { stdout: "", stderr: "", exitCode: 0 };
-		let allStdout = "";
-		let allStderr = "";
+		const stdoutParts: string[] = [];
+		const stderrParts: string[] = [];
 		let iterations = 0;
 		const maxIterations = 100000;
 
 		while (iterations < maxIterations) {
 			const condResult = await this.executeNode(node.condition, stdin);
-			allStdout += condResult.stdout;
-			allStderr += condResult.stderr;
+			if (condResult.stdout) stdoutParts.push(condResult.stdout);
+			if (condResult.stderr) stderrParts.push(condResult.stderr);
 			if (condResult.exitCode !== 0) break;
 
 			try {
 				const result = await this.executeNode(node.body, stdin);
-				allStdout += result.stdout;
-				allStderr += result.stderr;
+				if (result.stdout) stdoutParts.push(result.stdout);
+				if (result.stderr) stderrParts.push(result.stderr);
 				lastResult = result;
 			} catch (e) {
 				if (e instanceof BreakSignal) {
@@ -378,26 +378,26 @@ export class Executor {
 			iterations++;
 		}
 
-		return { stdout: allStdout, stderr: allStderr, exitCode: lastResult.exitCode };
+		return { stdout: stdoutParts.join(""), stderr: stderrParts.join(""), exitCode: lastResult.exitCode };
 	}
 
 	private async executeUntilNode(node: UntilNode, stdin: string): Promise<ShellResult> {
 		let lastResult: ShellResult = { stdout: "", stderr: "", exitCode: 0 };
-		let allStdout = "";
-		let allStderr = "";
+		const stdoutParts: string[] = [];
+		const stderrParts: string[] = [];
 		let iterations = 0;
 		const maxIterations = 100000;
 
 		while (iterations < maxIterations) {
 			const condResult = await this.executeNode(node.condition, stdin);
-			allStdout += condResult.stdout;
-			allStderr += condResult.stderr;
+			if (condResult.stdout) stdoutParts.push(condResult.stdout);
+			if (condResult.stderr) stderrParts.push(condResult.stderr);
 			if (condResult.exitCode === 0) break;
 
 			try {
 				const result = await this.executeNode(node.body, stdin);
-				allStdout += result.stdout;
-				allStderr += result.stderr;
+				if (result.stdout) stdoutParts.push(result.stdout);
+				if (result.stderr) stderrParts.push(result.stderr);
 				lastResult = result;
 			} catch (e) {
 				if (e instanceof BreakSignal) {
@@ -415,7 +415,7 @@ export class Executor {
 			iterations++;
 		}
 
-		return { stdout: allStdout, stderr: allStderr, exitCode: lastResult.exitCode };
+		return { stdout: stdoutParts.join(""), stderr: stderrParts.join(""), exitCode: lastResult.exitCode };
 	}
 
 	private async executeCaseNode(node: CaseNode, stdin: string): Promise<ShellResult> {
