@@ -1,9 +1,9 @@
-import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { defineConfig } from "astro/config";
 import starlightThemeRapide from "starlight-theme-rapide";
 
 export default defineConfig({
-	site: "https://seventwo-studio.github.io",
+	site: "https://ambiently-work.github.io",
 	base: "/faux-shell",
 	integrations: [
 		starlight({
@@ -15,12 +15,11 @@ export default defineConfig({
 				{
 					icon: "github",
 					label: "GitHub",
-					href: "https://github.com/seventwo-studio/faux-shell",
+					href: "https://github.com/ambiently-work/faux-shell",
 				},
 			],
 			editLink: {
-				baseUrl:
-					"https://github.com/seventwo-studio/faux-shell/edit/main/packages/docs/",
+				baseUrl: "https://github.com/ambiently-work/faux-shell/edit/main/packages/docs/",
 			},
 			lastUpdated: true,
 			sidebar: [

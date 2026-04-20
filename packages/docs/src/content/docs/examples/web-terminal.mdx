@@ -214,7 +214,7 @@ bun add faux-shell
 Then import it normally:
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 ```
 
 The library is pure ESM with no Node.js APIs, so it works in any browser bundler without polyfills.
@@ -512,7 +512,7 @@ A minimal React terminal component:
 
 ```tsx
 import { useState, useRef, useEffect } from "react";
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({ cwd: "/home/user" });
 
