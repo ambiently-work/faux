@@ -522,15 +522,13 @@ describe("control flow", () => {
 
 	test("while loop", async () => {
 		const shell = createShell();
-		const r = await shell.run(
-			'x=0; while [ $x -lt 3 ]; do echo $x; x=$((x + 1)); done',
-		);
+		const r = await shell.run("x=0; while [ $x -lt 3 ]; do echo $x; x=$((x + 1)); done");
 		expect(r.stdout).toBe("0\n1\n2\n");
 	});
 
 	test("case statement", async () => {
 		const shell = createShell();
-		const r = await shell.run('x=hello; case $x in hello) echo matched;; *) echo nope;; esac');
+		const r = await shell.run("x=hello; case $x in hello) echo matched;; *) echo nope;; esac");
 		expect(r.stdout).toContain("matched");
 	});
 
@@ -554,49 +552,49 @@ describe("control flow", () => {
 describe("variable expansion", () => {
 	test("default value ${var:-default}", async () => {
 		const shell = createShell();
-		const r = await shell.run('echo ${UNSET:-fallback}');
+		const r = await shell.run("echo ${UNSET:-fallback}");
 		expect(r.stdout.trim()).toBe("fallback");
 	});
 
 	test("alternate value ${var:+alt}", async () => {
 		const shell = createShell();
 		await shell.run("x=hello");
-		const r = await shell.run('echo ${x:+exists}');
+		const r = await shell.run("echo ${x:+exists}");
 		expect(r.stdout.trim()).toBe("exists");
 	});
 
 	test("string length ${#var}", async () => {
 		const shell = createShell();
 		await shell.run("x=hello");
-		const r = await shell.run('echo ${#x}');
+		const r = await shell.run("echo ${#x}");
 		expect(r.stdout.trim()).toBe("5");
 	});
 
 	test("suffix removal ${var%pattern}", async () => {
 		const shell = createShell();
 		await shell.run("f=file.tar.gz");
-		const r = await shell.run('echo ${f%.*}');
+		const r = await shell.run("echo ${f%.*}");
 		expect(r.stdout.trim()).toBe("file.tar");
 	});
 
 	test("prefix removal ${var#pattern}", async () => {
 		const shell = createShell();
 		await shell.run("p=/home/user/file");
-		const r = await shell.run('echo ${p#*/}');
+		const r = await shell.run("echo ${p#*/}");
 		expect(r.stdout.trim()).toBe("home/user/file");
 	});
 
 	test("uppercase ${var^^}", async () => {
 		const shell = createShell();
 		await shell.run("x=hello");
-		const r = await shell.run('echo ${x^^}');
+		const r = await shell.run("echo ${x^^}");
 		expect(r.stdout.trim()).toBe("HELLO");
 	});
 
 	test("lowercase ${var,,}", async () => {
 		const shell = createShell();
 		await shell.run("x=HELLO");
-		const r = await shell.run('echo ${x,,}');
+		const r = await shell.run("echo ${x,,}");
 		expect(r.stdout.trim()).toBe("hello");
 	});
 });
@@ -758,23 +756,19 @@ describe("subshells and functions", () => {
 describe("condition output", () => {
 	test("if condition output is preserved", async () => {
 		const shell = createShell();
-		const r = await shell.run('if echo check; then echo yes; fi');
+		const r = await shell.run("if echo check; then echo yes; fi");
 		expect(r.stdout).toBe("check\nyes\n");
 	});
 
 	test("elif condition outputs preserved", async () => {
 		const shell = createShell();
-		const r = await shell.run(
-			'if false; then echo no; elif echo cond; then echo yes; fi',
-		);
+		const r = await shell.run("if false; then echo no; elif echo cond; then echo yes; fi");
 		expect(r.stdout).toBe("cond\nyes\n");
 	});
 
 	test("while condition output preserved", async () => {
 		const shell = createShell();
-		const r = await shell.run(
-			'x=0; while [ $x -lt 2 ]; do x=$((x+1)); echo body; done',
-		);
+		const r = await shell.run("x=0; while [ $x -lt 2 ]; do x=$((x+1)); echo body; done");
 		expect(r.stdout).toBe("body\nbody\n");
 	});
 });
@@ -790,13 +784,13 @@ describe("command substitution", () => {
 
 	test("nested substitution", async () => {
 		const shell = createShell();
-		const r = await shell.run('echo $(echo $(echo deep))');
+		const r = await shell.run("echo $(echo $(echo deep))");
 		expect(r.stdout.trim()).toBe("deep");
 	});
 
 	test("backtick substitution", async () => {
 		const shell = createShell();
-		const r = await shell.run('echo `echo backtick`');
+		const r = await shell.run("echo `echo backtick`");
 		expect(r.stdout.trim()).toBe("backtick");
 	});
 });
@@ -823,14 +817,14 @@ describe("xargs", () => {
 describe("special variables", () => {
 	test("$# counts positional args in function", async () => {
 		const shell = createShell();
-		await shell.run('count() { echo $#; }');
+		await shell.run("count() { echo $#; }");
 		const r = await shell.run("count a b c");
 		expect(r.stdout.trim()).toBe("3");
 	});
 
 	test("$@ expands positional args", async () => {
 		const shell = createShell();
-		await shell.run('show() { echo $@; }');
+		await shell.run("show() { echo $@; }");
 		const r = await shell.run("show x y z");
 		expect(r.stdout.trim()).toBe("x y z");
 	});
@@ -1007,29 +1001,29 @@ describe("parameter expansion edge cases", () => {
 	test("${#var} returns string length", async () => {
 		const shell = createShell();
 		await shell.run("x=hello");
-		const r = await shell.run('echo ${#x}');
+		const r = await shell.run("echo ${#x}");
 		expect(r.stdout.trim()).toBe("5");
 	});
 
 	test("greedy suffix removal ${var%%pattern}", async () => {
 		const shell = createShell();
 		await shell.run("f=file.tar.gz");
-		const r = await shell.run('echo ${f%%.*}');
+		const r = await shell.run("echo ${f%%.*}");
 		expect(r.stdout.trim()).toBe("file");
 	});
 
 	test("greedy prefix removal ${var##pattern}", async () => {
 		const shell = createShell();
 		await shell.run("p=/home/user/file");
-		const r = await shell.run('echo ${p##*/}');
+		const r = await shell.run("echo ${p##*/}");
 		expect(r.stdout.trim()).toBe("file");
 	});
 
 	test("assign default ${var:=default}", async () => {
 		const shell = createShell();
-		const r = await shell.run('echo ${NEWVAR:=assigned}');
+		const r = await shell.run("echo ${NEWVAR:=assigned}");
 		expect(r.stdout.trim()).toBe("assigned");
-		const r2 = await shell.run('echo $NEWVAR');
+		const r2 = await shell.run("echo $NEWVAR");
 		expect(r2.stdout.trim()).toBe("assigned");
 	});
 });
@@ -1176,13 +1170,13 @@ describe("grep edge cases", () => {
 describe("wc edge cases", () => {
 	test("-l counts newlines not text lines", async () => {
 		const shell = createShell();
-		const r = await shell.run('echo -n hello | wc -l');
+		const r = await shell.run("echo -n hello | wc -l");
 		expect(r.stdout.trim()).toBe("0");
 	});
 
 	test("-l with trailing newline", async () => {
 		const shell = createShell();
-		const r = await shell.run('echo hello | wc -l');
+		const r = await shell.run("echo hello | wc -l");
 		expect(r.stdout.trim()).toBe("1");
 	});
 
@@ -1228,7 +1222,7 @@ describe("find", () => {
 describe("read builtin", () => {
 	test("reads into variable", async () => {
 		const shell = createShell();
-		await shell.run('echo hello | read x');
+		await shell.run("echo hello | read x");
 		// read in pipeline runs in subshell in real bash, but in our model
 		// let's just test basic functionality
 		const r = await shell.run('echo "hello world" | { read x; echo $x; }');
@@ -1480,7 +1474,7 @@ describe("awk", () => {
 
 	test("NR line number", async () => {
 		const shell = createShell();
-		const r = await shell.run('printf "a\\nb\\nc\\n" | awk \'{print NR, $0}\'');
+		const r = await shell.run("printf \"a\\nb\\nc\\n\" | awk '{print NR, $0}'");
 		expect(r.stdout).toContain("1 a");
 		expect(r.stdout).toContain("3 c");
 	});
@@ -1618,14 +1612,14 @@ describe("source", () => {
 describe("shift", () => {
 	test("shifts positional params in function", async () => {
 		const shell = createShell();
-		await shell.run('f() { shift; echo $1; }');
+		await shell.run("f() { shift; echo $1; }");
 		const r = await shell.run("f a b c");
 		expect(r.stdout.trim()).toBe("b");
 	});
 
 	test("shift N shifts multiple", async () => {
 		const shell = createShell();
-		await shell.run('f() { shift 2; echo $1; }');
+		await shell.run("f() { shift 2; echo $1; }");
 		const r = await shell.run("f a b c");
 		expect(r.stdout.trim()).toBe("c");
 	});
@@ -1650,7 +1644,7 @@ describe("trap", () => {
 describe("set and shopt", () => {
 	test("set -- sets positional params", async () => {
 		const shell = createShell();
-		await shell.run('f() { set -- x y z; echo $2; }');
+		await shell.run("f() { set -- x y z; echo $2; }");
 		const r = await shell.run("f");
 		expect(r.stdout.trim()).toBe("y");
 	});
@@ -2006,9 +2000,7 @@ describe("nested control flow", () => {
 
 	test("nested for loops", async () => {
 		const shell = createShell();
-		const r = await shell.run(
-			"for i in 1 2; do for j in a b; do echo $i$j; done; done",
-		);
+		const r = await shell.run("for i in 1 2; do for j in a b; do echo $i$j; done; done");
 		expect(r.stdout).toBe("1a\n1b\n2a\n2b\n");
 	});
 
@@ -2017,8 +2009,91 @@ describe("nested control flow", () => {
 		const r = await shell.run(
 			"x=0; while true; do x=$((x+1)); if [ $x -gt 3 ]; then break; fi; echo $x; done",
 		);
-		expect(r.stdout).toContain("1");
-		expect(r.stdout).toContain("3");
+		expect(r.stdout).toBe("1\n2\n3\n");
+	});
+
+	test("for with break", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3 4 5; do if [ $i -eq 3 ]; then break; fi; echo $i; done",
+		);
+		expect(r.stdout).toBe("1\n2\n");
+	});
+
+	test("until with break", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"x=0; until false; do x=$((x+1)); if [ $x -gt 2 ]; then break; fi; echo $x; done",
+		);
+		expect(r.stdout).toBe("1\n2\n");
+	});
+
+	test("continue skips iteration", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3 4; do if [ $i -eq 2 ]; then continue; fi; echo $i; done",
+		);
+		expect(r.stdout).toBe("1\n3\n4\n");
+	});
+
+	test("break 2 exits two enclosing loops", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2; do for j in a b; do if [ $j = b ]; then break 2; fi; echo $i$j; done; done",
+		);
+		expect(r.stdout).toBe("1a\n");
+	});
+
+	test("continue 2 skips outer iteration", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2; do for j in a b; do if [ $j = b ]; then continue 2; fi; echo $i$j; done; echo done$i; done",
+		);
+		expect(r.stdout).toBe("1a\n2a\n");
+	});
+
+	test("break inside nested if inside loop", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3; do if true; then if [ $i -eq 2 ]; then break; fi; fi; echo $i; done",
+		);
+		expect(r.stdout).toBe("1\n");
+	});
+
+	test("break outside loop reports error and does not crash", async () => {
+		const shell = createShell();
+		const r = await shell.run("break; echo after");
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("only meaningful");
+	});
+
+	test("continue outside loop reports error and does not crash", async () => {
+		const shell = createShell();
+		const r = await shell.run("continue; echo after");
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("only meaningful");
+	});
+
+	test("break with non-numeric argument errors", async () => {
+		const shell = createShell();
+		const r = await shell.run("for i in 1 2; do break foo; echo $i; done");
+		expect(r.stderr).toContain("numeric argument required");
+	});
+
+	test("output before break is preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3; do echo before$i; if [ $i -eq 2 ]; then break; fi; done",
+		);
+		expect(r.stdout).toBe("before1\nbefore2\n");
+	});
+
+	test("output before continue is preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3; do echo a$i; if [ $i -eq 2 ]; then continue; fi; echo b$i; done",
+		);
+		expect(r.stdout).toBe("a1\nb1\na2\na3\nb3\n");
 	});
 });
 
@@ -2034,9 +2109,7 @@ describe("multiple redirects", () => {
 describe("complex pipelines", () => {
 	test("sort | uniq -c pipeline", async () => {
 		const shell = createShell();
-		const r = await shell.run(
-			'printf "b\\na\\nb\\na\\na\\n" | sort | uniq -c',
-		);
+		const r = await shell.run('printf "b\\na\\nb\\na\\na\\n" | sort | uniq -c');
 		expect(r.stdout).toContain("3");
 		expect(r.stdout).toContain("a");
 		expect(r.stdout).toContain("2");

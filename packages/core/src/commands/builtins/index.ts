@@ -35,6 +35,7 @@ import { head } from "./head.js";
 import { hostname } from "./hostname.js";
 import { id, whoami } from "./id.js";
 import { bg, fg, jobs, kill, suspend, times, wait } from "./jobs.js";
+import { breakCmd, continueCmd } from "./break-continue.js";
 import { join } from "./join.js";
 import { letCmd } from "./let.js";
 import { ln } from "./ln.js";
@@ -90,6 +91,7 @@ export const allBuiltins: CommandHandler[] = [
 	bc,
 	bg,
 	bracket,
+	breakCmd,
 	builtin,
 	cal,
 	cat,
@@ -98,6 +100,7 @@ export const allBuiltins: CommandHandler[] = [
 	column,
 	comm,
 	command,
+	continueCmd,
 	cp,
 	cut,
 	date,

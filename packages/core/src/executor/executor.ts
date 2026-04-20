@@ -33,6 +33,8 @@ import {
 	type ExecutorContext,
 	executeCommand,
 	executePipeline,
+	ShellBreak,
+	ShellContinue,
 	ShellExit,
 	ShellReturn,
 } from "./pipeline.js";
@@ -61,6 +63,20 @@ export class Executor {
 			}
 			if (e instanceof ShellReturn) {
 				return { stdout: "", stderr: "", exitCode: e.code };
+			}
+			if (e instanceof ShellBreak) {
+				return {
+					stdout: "",
+					stderr: "break: only meaningful in a `for', `while', `until', or `select' loop\n",
+					exitCode: 1,
+				};
+			}
+			if (e instanceof ShellContinue) {
+				return {
+					stdout: "",
+					stderr: "continue: only meaningful in a `for', `while', `until', or `select' loop\n",
+					exitCode: 1,
+				};
 			}
 			throw e;
 		}
@@ -227,25 +243,47 @@ export class Executor {
 			exitCode: right.exitCode,
 		});
 
+		const runRight = async (): Promise<ShellResult> => {
+			try {
+				return combine(await this.executeNode(node.right, stdin));
+			} catch (e) {
+				if (e instanceof ShellBreak) {
+					throw new ShellBreak(
+						e.levels,
+						leftResult.stdout + e.stdout,
+						leftResult.stderr + e.stderr,
+					);
+				}
+				if (e instanceof ShellContinue) {
+					throw new ShellContinue(
+						e.levels,
+						leftResult.stdout + e.stdout,
+						leftResult.stderr + e.stderr,
+					);
+				}
+				throw e;
+			}
+		};
+
 		switch (node.operator) {
 			case "&&":
 				if (leftResult.exitCode === 0) {
-					return combine(await this.executeNode(node.right, stdin));
+					return runRight();
 				}
 				return leftResult;
 
 			case "||":
 				if (leftResult.exitCode !== 0) {
-					return combine(await this.executeNode(node.right, stdin));
+					return runRight();
 				}
 				return leftResult;
 
 			case ";":
-				return combine(await this.executeNode(node.right, stdin));
+				return runRight();
 
 			case "&":
 				// Background: just execute right immediately (no true async in our model)
-				return combine(await this.executeNode(node.right, stdin));
+				return runRight();
 
 			default:
 				return leftResult;
@@ -334,19 +372,31 @@ export class Executor {
 				if (result.stderr) stderrParts.push(result.stderr);
 				lastResult = result;
 			} catch (e) {
-				if (e instanceof BreakSignal) {
-					if (e.levels > 1) throw new BreakSignal(e.levels - 1);
+				if (e instanceof ShellBreak) {
+					if (e.stdout) stdoutParts.push(e.stdout);
+					if (e.stderr) stderrParts.push(e.stderr);
+					if (e.levels > 1) {
+						throw new ShellBreak(e.levels - 1, stdoutParts.join(""), stderrParts.join(""));
+					}
 					break;
 				}
-				if (e instanceof ContinueSignal) {
-					if (e.levels > 1) throw new ContinueSignal(e.levels - 1);
+				if (e instanceof ShellContinue) {
+					if (e.stdout) stdoutParts.push(e.stdout);
+					if (e.stderr) stderrParts.push(e.stderr);
+					if (e.levels > 1) {
+						throw new ShellContinue(e.levels - 1, stdoutParts.join(""), stderrParts.join(""));
+					}
 					continue;
 				}
 				throw e;
 			}
 		}
 
-		return { stdout: stdoutParts.join(""), stderr: stderrParts.join(""), exitCode: lastResult.exitCode };
+		return {
+			stdout: stdoutParts.join(""),
+			stderr: stderrParts.join(""),
+			exitCode: lastResult.exitCode,
+		};
 	}
 
 	private async executeWhileNode(node: WhileNode, stdin: string): Promise<ShellResult> {
@@ -368,12 +418,20 @@ export class Executor {
 				if (result.stderr) stderrParts.push(result.stderr);
 				lastResult = result;
 			} catch (e) {
-				if (e instanceof BreakSignal) {
-					if (e.levels > 1) throw new BreakSignal(e.levels - 1);
+				if (e instanceof ShellBreak) {
+					if (e.stdout) stdoutParts.push(e.stdout);
+					if (e.stderr) stderrParts.push(e.stderr);
+					if (e.levels > 1) {
+						throw new ShellBreak(e.levels - 1, stdoutParts.join(""), stderrParts.join(""));
+					}
 					break;
 				}
-				if (e instanceof ContinueSignal) {
-					if (e.levels > 1) throw new ContinueSignal(e.levels - 1);
+				if (e instanceof ShellContinue) {
+					if (e.stdout) stdoutParts.push(e.stdout);
+					if (e.stderr) stderrParts.push(e.stderr);
+					if (e.levels > 1) {
+						throw new ShellContinue(e.levels - 1, stdoutParts.join(""), stderrParts.join(""));
+					}
 					iterations++;
 					continue;
 				}
@@ -383,7 +441,11 @@ export class Executor {
 			iterations++;
 		}
 
-		return { stdout: stdoutParts.join(""), stderr: stderrParts.join(""), exitCode: lastResult.exitCode };
+		return {
+			stdout: stdoutParts.join(""),
+			stderr: stderrParts.join(""),
+			exitCode: lastResult.exitCode,
+		};
 	}
 
 	private async executeUntilNode(node: UntilNode, stdin: string): Promise<ShellResult> {
@@ -405,12 +467,20 @@ export class Executor {
 				if (result.stderr) stderrParts.push(result.stderr);
 				lastResult = result;
 			} catch (e) {
-				if (e instanceof BreakSignal) {
-					if (e.levels > 1) throw new BreakSignal(e.levels - 1);
+				if (e instanceof ShellBreak) {
+					if (e.stdout) stdoutParts.push(e.stdout);
+					if (e.stderr) stderrParts.push(e.stderr);
+					if (e.levels > 1) {
+						throw new ShellBreak(e.levels - 1, stdoutParts.join(""), stderrParts.join(""));
+					}
 					break;
 				}
-				if (e instanceof ContinueSignal) {
-					if (e.levels > 1) throw new ContinueSignal(e.levels - 1);
+				if (e instanceof ShellContinue) {
+					if (e.stdout) stdoutParts.push(e.stdout);
+					if (e.stderr) stderrParts.push(e.stderr);
+					if (e.levels > 1) {
+						throw new ShellContinue(e.levels - 1, stdoutParts.join(""), stderrParts.join(""));
+					}
 					iterations++;
 					continue;
 				}
@@ -420,7 +490,11 @@ export class Executor {
 			iterations++;
 		}
 
-		return { stdout: stdoutParts.join(""), stderr: stderrParts.join(""), exitCode: lastResult.exitCode };
+		return {
+			stdout: stdoutParts.join(""),
+			stderr: stderrParts.join(""),
+			exitCode: lastResult.exitCode,
+		};
 	}
 
 	private async executeCaseNode(node: CaseNode, stdin: string): Promise<ShellResult> {
@@ -479,7 +553,19 @@ export class Executor {
 
 		// Just select the first item
 		this.env.set(node.variable, words[0]);
-		return this.executeNode(node.body, stdin);
+		try {
+			return await this.executeNode(node.body, stdin);
+		} catch (e) {
+			if (e instanceof ShellBreak) {
+				if (e.levels > 1) throw new ShellBreak(e.levels - 1);
+				return { stdout: "", stderr: "", exitCode: 0 };
+			}
+			if (e instanceof ShellContinue) {
+				if (e.levels > 1) throw new ShellContinue(e.levels - 1);
+				return { stdout: "", stderr: "", exitCode: 0 };
+			}
+			throw e;
+		}
 	}
 
 	private async executeFunctionNode(node: FunctionNode): Promise<ShellResult> {
@@ -490,20 +576,6 @@ export class Executor {
 	private async executeArithmeticNode(node: ArithmeticNode): Promise<ShellResult> {
 		const result = evaluateArithmetic(node.expression, this.env);
 		return { stdout: "", stderr: "", exitCode: result === 0 ? 1 : 0 };
-	}
-}
-
-class BreakSignal extends Error {
-	constructor(public levels: number = 1) {
-		super("break");
-		this.name = "BreakSignal";
-	}
-}
-
-class ContinueSignal extends Error {
-	constructor(public levels: number = 1) {
-		super("continue");
-		this.name = "ContinueSignal";
 	}
 }
 
@@ -576,5 +648,3 @@ function matchGlobPattern(text: string, pattern: string): boolean {
 
 	return pi === pattern.length;
 }
-
-export { BreakSignal, ContinueSignal };
