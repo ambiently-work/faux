@@ -3,7 +3,7 @@ import starlight from "@astrojs/starlight";
 import starlightThemeRapide from "starlight-theme-rapide";
 
 export default defineConfig({
-	site: "https://lucasilverentand.github.io",
+	site: "https://seventwo-studio.github.io",
 	base: "/faux-shell",
 	integrations: [
 		starlight({
@@ -15,12 +15,12 @@ export default defineConfig({
 				{
 					icon: "github",
 					label: "GitHub",
-					href: "https://github.com/lucasilverentand/faux-shell",
+					href: "https://github.com/seventwo-studio/faux-shell",
 				},
 			],
 			editLink: {
 				baseUrl:
-					"https://github.com/lucasilverentand/faux-shell/edit/main/packages/docs/",
+					"https://github.com/seventwo-studio/faux-shell/edit/main/packages/docs/",
 			},
 			lastUpdated: true,
 			sidebar: [
