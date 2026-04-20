@@ -1,10 +1,35 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.0/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+	"files": {
+		"includes": [
+			"**",
+			"!**/node_modules",
+			"!**/dist",
+			"!**/target",
+			"!**/pkg",
+			"!**/pkg-node",
+			"!**/tsconfig.tsbuildinfo",
+			"!packages/docs/.astro",
+			"!**/*.mdx"
+		]
+	},
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"recommended": true,
+			"style": {
+				"noNonNullAssertion": "warn"
+			},
+			"suspicious": {
+				"noTemplateCurlyInString": "off",
+				"noExplicitAny": "warn",
+				"noThenProperty": "warn",
+				"noAssignInExpressions": "warn"
+			},
+			"correctness": {
+				"noUnusedFunctionParameters": "warn"
+			}
 		}
 	},
 	"formatter": {

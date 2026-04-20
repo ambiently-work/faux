@@ -6,9 +6,9 @@ description: "API reference for the faux-shell parser — tokenizer, parser, AST
 The parser package converts shell command strings into an abstract syntax tree (AST). It is available as a standalone package or re-exported from the main `faux-shell` package.
 
 ```typescript
-import { parse, Parser, Tokenizer, useWasmParser } from "@faux-shell/parser";
+import { parse, Parser, Tokenizer, useWasmParser } from "@ambiently-work/faux-shell-parser";
 // or
-import { parse, useWasmParser } from "faux-shell";
+import { parse, useWasmParser } from "@ambiently-work/faux-shell";
 ```
 
 ---
@@ -22,7 +22,7 @@ function parse(input: string): AstNode
 Parse a shell command string into an AST in one call. This is the simplest way to use the parser and what the `Shell` class uses internally.
 
 ```typescript
-import { parse } from "@faux-shell/parser";
+import { parse } from "@ambiently-work/faux-shell-parser";
 
 const ast = parse("echo hello | grep hell");
 // Returns a PipelineNode with two CommandNodes
@@ -44,7 +44,7 @@ class Parser {
 The `Parser` class gives you direct access to the parsing step. Internally it creates a `Tokenizer`, reads tokens, and builds the AST.
 
 ```typescript
-import { Parser } from "@faux-shell/parser";
+import { Parser } from "@ambiently-work/faux-shell-parser";
 
 const parser = new Parser('for i in 1 2 3; do echo $i; done');
 const ast = parser.parse();
@@ -66,7 +66,7 @@ class Tokenizer {
 The `Tokenizer` breaks a shell command string into tokens. Each token has a type, value, and source position.
 
 ```typescript
-import { Tokenizer } from "@faux-shell/parser";
+import { Tokenizer } from "@ambiently-work/faux-shell-parser";
 
 const tokenizer = new Tokenizer('echo "hello world" | grep hello');
 let token = tokenizer.next();
@@ -134,8 +134,8 @@ function useWasmParser(module: { parse(input: string): AstNode }): void
 Register a WASM parser module as the global parse implementation. Once registered, all calls to `parse()` -- including those made internally by `Shell.run()` -- will use the WASM parser.
 
 ```typescript
-import { useWasmParser } from "@faux-shell/parser";
-import * as wasmParser from "@faux-shell/parser-wasm";
+import { useWasmParser } from "@ambiently-work/faux-shell-parser";
+import * as wasmParser from "@ambiently-work/faux-shell-parser-wasm";
 
 useWasmParser(wasmParser);
 

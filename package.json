@@ -1,15 +1,75 @@
 {
-  "name": "faux-shell-monorepo",
-  "private": true,
-  "scripts": {
-    "shell": "bun run packages/cli/src/repl.ts",
-    "wasm-demo": "bun run packages/cli/src/wasm-demo.ts",
-    "docs": "bun run --cwd packages/docs dev",
-    "docs:build": "bun run --cwd packages/docs build",
-    "build": "bun run --filter '*' build",
-    "test": "bun run --filter '*' test",
-    "check": "biome check .",
-    "format": "biome format --write ."
-  },
-  "workspaces": ["packages/*"]
+	"name": "@ambiently-work/faux-shell",
+	"version": "0.0.1",
+	"description": "POSIX-ish shell that runs entirely in-process — no child_process, no subshell. Virtual FS, builtins, and an optional WASM-accelerated runtime.",
+	"license": "MIT",
+	"author": "ambiently",
+	"homepage": "https://github.com/ambiently-work/faux-shell",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ambiently-work/faux-shell.git"
+	},
+	"bugs": "https://github.com/ambiently-work/faux-shell/issues",
+	"keywords": [
+		"shell",
+		"bash",
+		"posix",
+		"sandbox",
+		"virtual-filesystem",
+		"wasm",
+		"agent"
+	],
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts",
+		"./wasm": "./src/wasm/index.ts",
+		"./wasm-binary": "./pkg/faux_shell_wasm_bg.wasm"
+	},
+	"publishConfig": {
+		"access": "public",
+		"main": "./dist/index.js",
+		"types": "./dist/index.d.ts",
+		"exports": {
+			".": {
+				"types": "./dist/index.d.ts",
+				"import": "./dist/index.js",
+				"default": "./dist/index.js"
+			},
+			"./wasm": {
+				"types": "./dist/wasm/index.d.ts",
+				"import": "./dist/wasm/index.js",
+				"default": "./dist/wasm/index.js"
+			},
+			"./wasm-binary": "./pkg/faux_shell_wasm_bg.wasm"
+		}
+	},
+	"files": [
+		"dist",
+		"pkg"
+	],
+	"scripts": {
+		"shell": "bun run cli/repl.ts",
+		"wasm-demo": "bun run cli/wasm-demo.ts",
+		"docs": "bun run --cwd packages/docs dev",
+		"docs:build": "bun run --cwd packages/docs build",
+		"build": "bun run build:wasm && bun run build:ts",
+		"build:wasm": "wasm-pack build --target web --out-dir pkg",
+		"build:ts": "tsc -b --force",
+		"test": "bun test",
+		"check": "biome check .",
+		"format": "biome format --write .",
+		"clean": "rm -rf dist pkg tsconfig.tsbuildinfo",
+		"prepublishOnly": "bun run build"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.0",
+		"@biomejs/js-api": "^4.0.0",
+		"@biomejs/wasm-nodejs": "^2.4.10",
+		"typescript": "^5.9.2"
+	},
+	"workspaces": [
+		"packages/docs"
+	]
 }

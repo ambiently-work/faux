@@ -13,7 +13,7 @@ A minimal Worker that accepts shell commands via POST and returns the result.
 
 ```typescript
 // src/index.ts
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -71,7 +71,7 @@ Use Workers KV to save and restore the filesystem between requests. Each session
 
 ```typescript
 // src/index.ts
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 interface Env {
   SHELL_STATE: KVNamespace;
@@ -157,7 +157,7 @@ curl -X POST https://your-worker.example.com \
 In production, you should restrict which commands users can execute. Use the `builtins: false` option and register only safe commands, or validate commands before execution.
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const ALLOWED_COMMANDS = new Set([
   "echo", "cat", "grep", "sed", "awk", "cut", "sort", "uniq",
@@ -197,7 +197,7 @@ export default {
 
 ```typescript
 // Approach 2: Register only allowed builtins
-import { Shell, type CommandHandler } from "faux-shell";
+import { Shell, type CommandHandler } from "@ambiently-work/faux-shell";
 
 function createRestrictedShell(allowlist: string[]): Shell {
   // Create a full shell, extract allowed commands, build restricted shell
@@ -296,7 +296,7 @@ wrangler deploy
 For a more interactive experience, accept an array of commands and return results for each.
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 interface BatchRequest {
   commands: string[];
