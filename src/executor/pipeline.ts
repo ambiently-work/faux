@@ -56,9 +56,11 @@ export async function executeCommand(
 		if (func) {
 			const oldArgs = ctx.env.positionalArgs;
 			ctx.env.positionalArgs = args;
-			const result = await ctx.executeNode(func as AstNode, stdin);
-			ctx.env.positionalArgs = oldArgs;
-			return result;
+			try {
+				return await ctx.executeNode(func as AstNode, stdin);
+			} finally {
+				ctx.env.positionalArgs = oldArgs;
+			}
 		}
 
 		stderr.writeln(`${name}: command not found`);
@@ -144,6 +146,9 @@ export async function executeCommand(
 		if (e instanceof ShellReturn) {
 			return { stdout: stdout.toString(), stderr: stderr.toString(), exitCode: e.code };
 		}
+		if (e instanceof ShellBreak || e instanceof ShellContinue) {
+			throw e;
+		}
 		stderr.writeln(`${name}: ${e instanceof Error ? e.message : String(e)}`);
 		return { stdout: stdout.toString(), stderr: stderr.toString(), exitCode: 1 };
 	}
@@ -160,5 +165,27 @@ export class ShellReturn extends Error {
 	constructor(public code: number) {
 		super(`return ${code}`);
 		this.name = "ShellReturn";
+	}
+}
+
+export class ShellBreak extends Error {
+	constructor(
+		public levels: number = 1,
+		public stdout: string = "",
+		public stderr: string = "",
+	) {
+		super("break");
+		this.name = "ShellBreak";
+	}
+}
+
+export class ShellContinue extends Error {
+	constructor(
+		public levels: number = 1,
+		public stdout: string = "",
+		public stderr: string = "",
+	) {
+		super("continue");
+		this.name = "ShellContinue";
 	}
 }

@@ -2004,17 +2004,96 @@ describe("nested control flow", () => {
 		expect(r.stdout).toBe("1a\n1b\n2a\n2b\n");
 	});
 
-	// TODO: `break` is not yet implemented at the shell level (only inside awk),
-	// so this loop runs until the test timeout. Assertions passed locally by
-	// coincidence — the loop produces "1" and "3" long before 5s expires on a
-	// fast machine, but hits the timeout on slower CI runners. Re-enable once
-	// shell-level break/continue lands.
-	test.skip("while with break", async () => {
+	test("while with break", async () => {
 		const shell = createShell();
 		const r = await shell.run(
 			"x=0; while true; do x=$((x+1)); if [ $x -gt 3 ]; then break; fi; echo $x; done",
 		);
 		expect(r.stdout).toBe("1\n2\n3\n");
+	});
+
+	test("for with break", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3 4 5; do if [ $i -eq 3 ]; then break; fi; echo $i; done",
+		);
+		expect(r.stdout).toBe("1\n2\n");
+	});
+
+	test("until with break", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"x=0; until false; do x=$((x+1)); if [ $x -gt 2 ]; then break; fi; echo $x; done",
+		);
+		expect(r.stdout).toBe("1\n2\n");
+	});
+
+	test("continue skips iteration", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3 4; do if [ $i -eq 2 ]; then continue; fi; echo $i; done",
+		);
+		expect(r.stdout).toBe("1\n3\n4\n");
+	});
+
+	test("break 2 exits two enclosing loops", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2; do for j in a b; do if [ $j = b ]; then break 2; fi; echo $i$j; done; done",
+		);
+		expect(r.stdout).toBe("1a\n");
+	});
+
+	test("continue 2 skips outer iteration", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2; do for j in a b; do if [ $j = b ]; then continue 2; fi; echo $i$j; done; echo done$i; done",
+		);
+		expect(r.stdout).toBe("1a\n2a\n");
+	});
+
+	test("break inside nested if inside loop", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3; do if true; then if [ $i -eq 2 ]; then break; fi; fi; echo $i; done",
+		);
+		expect(r.stdout).toBe("1\n");
+	});
+
+	test("break outside loop reports error and does not crash", async () => {
+		const shell = createShell();
+		const r = await shell.run("break; echo after");
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("only meaningful");
+	});
+
+	test("continue outside loop reports error and does not crash", async () => {
+		const shell = createShell();
+		const r = await shell.run("continue; echo after");
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("only meaningful");
+	});
+
+	test("break with non-numeric argument errors", async () => {
+		const shell = createShell();
+		const r = await shell.run("for i in 1 2; do break foo; echo $i; done");
+		expect(r.stderr).toContain("numeric argument required");
+	});
+
+	test("output before break is preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3; do echo before$i; if [ $i -eq 2 ]; then break; fi; done",
+		);
+		expect(r.stdout).toBe("before1\nbefore2\n");
+	});
+
+	test("output before continue is preserved", async () => {
+		const shell = createShell();
+		const r = await shell.run(
+			"for i in 1 2 3; do echo a$i; if [ $i -eq 2 ]; then continue; fi; echo b$i; done",
+		);
+		expect(r.stdout).toBe("a1\nb1\na2\na3\nb3\n");
 	});
 });
 

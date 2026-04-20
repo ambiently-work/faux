@@ -5,6 +5,7 @@ import { awk } from "./awk.js";
 import { base64 } from "./base64.js";
 import { basename } from "./basename.js";
 import { bc } from "./bc.js";
+import { breakCmd, continueCmd } from "./break-continue.js";
 import { cat } from "./cat.js";
 import { cd } from "./cd.js";
 import { chmod } from "./chmod.js";
@@ -90,6 +91,7 @@ export const allBuiltins: CommandHandler[] = [
 	bc,
 	bg,
 	bracket,
+	breakCmd,
 	builtin,
 	cal,
 	cat,
@@ -98,6 +100,7 @@ export const allBuiltins: CommandHandler[] = [
 	column,
 	comm,
 	command,
+	continueCmd,
 	cp,
 	cut,
 	date,
