@@ -12,7 +12,7 @@ faux-shell includes a complete in-memory virtual filesystem (VFS) that behaves l
 Pass an `fs` object to pre-populate the filesystem. Keys are absolute paths, values are file contents. Parent directories are created automatically.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({
   fs: {
@@ -260,7 +260,7 @@ Snapshots only include files, not empty directories. The output is a plain objec
 Mount a custom `IFileSystem` implementation at any path. Reads and writes under that path are delegated to the mounted filesystem.
 
 ```typescript
-import type { IFileSystem } from "@ambiently/faux-shell";
+import type { IFileSystem } from "@ambiently-work/faux-shell";
 
 const apiFs: IFileSystem = {
   readFile(path) {

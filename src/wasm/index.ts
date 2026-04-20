@@ -22,7 +22,7 @@ export async function loadWasmRuntime(): Promise<WasmRuntimeModule> {
  * Use this on Cloudflare Workers where the bundler imports .wasm files directly:
  *
  * ```ts
- * import wasmModule from "@ambiently/faux-shell/wasm-binary";
+ * import wasmModule from "@ambiently-work/faux-shell/wasm-binary";
  * const runtime = await loadWasmRuntimeFromModule(wasmModule);
  * ```
  */

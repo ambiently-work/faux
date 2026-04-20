@@ -12,7 +12,7 @@ These examples show real-world patterns you can use with faux-shell. Every snipp
 Extract, filter, and sort data from CSV files using pipes.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({
   fs: {
@@ -63,7 +63,7 @@ console.log(total.stdout.trim()); // "8"
 Create a project structure programmatically, then search it with `find` and `grep`.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell();
 
@@ -107,7 +107,7 @@ console.log(tree.stdout);
 Chain text processing commands for complex transformations.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({
   fs: {
@@ -156,7 +156,7 @@ console.log(freq.stdout);
 Use shell scripting features: loops, conditionals, and functions.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell();
 
@@ -239,7 +239,7 @@ console.log(countdown.stdout);
 Read, modify, and validate configuration files.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({
   fs: {
@@ -313,7 +313,7 @@ console.log(envFile.stdout);
 Parse and analyze structured log data.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({
   fs: {

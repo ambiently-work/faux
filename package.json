@@ -1,5 +1,5 @@
 {
-	"name": "@ambiently/faux-shell",
+	"name": "@ambiently-work/faux-shell",
 	"version": "0.0.1",
 	"description": "POSIX-ish shell that runs entirely in-process — no child_process, no subshell. Virtual FS, builtins, and an optional WASM-accelerated runtime.",
 	"license": "MIT",

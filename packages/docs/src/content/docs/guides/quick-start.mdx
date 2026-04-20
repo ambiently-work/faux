@@ -30,7 +30,7 @@ This guide walks you through the basics of faux-shell: creating a shell instance
 ## 2. Create a shell instance
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 
 const shell = new Shell({
   env: {
@@ -187,7 +187,7 @@ console.log(result.stdout); // "There are 4 names\n"
 You can add your own commands alongside the 111 built-ins. A command handler has a `name` and an `execute` function that receives a `CommandContext`:
 
 ```typescript
-import { Shell, type CommandHandler } from "@ambiently/faux-shell";
+import { Shell, type CommandHandler } from "@ambiently-work/faux-shell";
 
 const fetchUrl: CommandHandler = {
   name: "fetch-url",

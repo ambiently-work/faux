@@ -8,7 +8,7 @@ import { Code } from '@astrojs/starlight/components';
 The `Shell` class is the primary interface for faux-shell. It wraps the parser, virtual filesystem, environment, and command registry into a single object that accepts bash commands and returns structured results.
 
 ```typescript
-import { Shell } from "@ambiently/faux-shell";
+import { Shell } from "@ambiently-work/faux-shell";
 ```
 
 ## Constructor
@@ -197,7 +197,7 @@ mount(path: string, fs: IFileSystem): this
 Mount an external filesystem implementation at a given path. Any file operations under that path will be delegated to the mounted filesystem. Returns `this` for chaining.
 
 ```typescript
-import { VirtualFileSystem } from "@ambiently/faux-shell";
+import { VirtualFileSystem } from "@ambiently-work/faux-shell";
 
 const dataFs = new VirtualFileSystem({
   files: { "/readme.txt": "Hello from mounted FS" },
