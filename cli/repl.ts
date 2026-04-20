@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { Biome } from "@biomejs/js-api/nodejs";
+import pkg from "../package.json" with { type: "json" };
 import { createBiomeCommand, Shell } from "../src/index.js";
 
 const RESET = "\x1b[0m";
@@ -108,8 +109,9 @@ async function main() {
 
 	// Print MOTD
 	writer.write(`\n${BOLD}${CYAN}  ╭─────────────────────────────────────╮${RESET}\n`);
+	const version = `v${pkg.version}`.padEnd(24);
 	writer.write(
-		`${BOLD}${CYAN}  │${RESET}  ${BOLD}faux-shell${RESET} v0.1.0                  ${BOLD}${CYAN}│${RESET}\n`,
+		`${BOLD}${CYAN}  │${RESET}  ${BOLD}faux-shell${RESET} ${version}${BOLD}${CYAN}│${RESET}\n`,
 	);
 	writer.write(
 		`${BOLD}${CYAN}  │${RESET}  ${DIM}Virtual bash · Pure TypeScript${RESET}      ${BOLD}${CYAN}│${RESET}\n`,
