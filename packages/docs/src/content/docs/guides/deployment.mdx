@@ -10,7 +10,7 @@ faux-shell is pure JavaScript with zero dependencies and no native bindings. It 
 ## Cloudflare Workers
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -39,7 +39,7 @@ For persistent state across requests, store the shell instance outside the fetch
 ### Persistent shell per session
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 const sessions = new Map<string, Shell>();
 
@@ -67,7 +67,7 @@ export default {
 ## Deno Deploy
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 Deno.serve(async (req) => {
   const shell = new Shell({
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 ## Bun
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 const shell = new Shell({
   fs: {
@@ -113,7 +113,7 @@ faux-shell works in any browser with ESM support. Use your bundler of choice.
 <Tabs>
 <TabItem label="Vite">
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 const shell = new Shell();
 
@@ -163,7 +163,7 @@ faux-shell is designed to be lightweight:
 If your bundler supports tree-shaking (Vite, esbuild, Rollup), unused built-in commands are eliminated from the final bundle. You can also disable all builtins and register only what you need:
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 const shell = new Shell({
   builtins: false, // disable all 111 built-in commands
@@ -180,7 +180,7 @@ const shell = new Shell({
 The default parser is pure JavaScript. For workloads that parse a very high volume of shell input, an optional WASM-based parser is available:
 
 ```typescript
-import { Shell, useWasmParser } from "faux-shell";
+import { Shell, useWasmParser } from "@ambiently/faux-shell";
 
 const parser = await useWasmParser();
 const shell = new Shell({ parser });

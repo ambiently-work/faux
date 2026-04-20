@@ -30,7 +30,7 @@ That is all you need. The package has zero dependencies (the parser is bundled).
 ## Import
 
 ```typescript
-import { Shell } from "faux-shell";
+import { Shell } from "@ambiently/faux-shell";
 
 const shell = new Shell();
 const result = await shell.run("echo hello");
@@ -48,7 +48,7 @@ import {
   CommandRegistry,
   VirtualFileSystem,
   Environment,
-} from "faux-shell";
+} from "@ambiently/faux-shell";
 ```
 
 ## Parser-only install
@@ -74,7 +74,7 @@ If you only need the shell parser (for syntax highlighting, linting, or building
 </Tabs>
 
 ```typescript
-import { parse, type AstNode } from "@faux-shell/parser";
+import { parse, type AstNode } from "@ambiently/faux-shell-parser";
 
 const ast = parse('echo "hello world" | grep hello');
 ```
