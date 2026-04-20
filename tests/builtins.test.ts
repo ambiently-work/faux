@@ -158,16 +158,15 @@ describe("grep", () => {
 	test("-i case insensitive", async () => {
 		const shell = createShell();
 		const r = await shell.run("grep -i hello /home/user/mixed.txt");
-		expect(r.stdout).toContain("Hello");
-		expect(r.stdout).toContain("hello");
-		expect(r.stdout).toContain("HELLO");
+		expect(r.stdout).toBe("Hello\nhello\nHELLO\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("-v invert match", async () => {
 		const shell = createShell();
 		const r = await shell.run("grep -v alpha /home/user/lines.txt");
-		expect(r.stdout).not.toContain("alpha");
-		expect(r.stdout).toContain("beta");
+		expect(r.stdout).toBe("beta\ngamma\ndelta\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("-c count matches", async () => {
@@ -235,8 +234,7 @@ describe("uniq", () => {
 	test("-c counts occurrences", async () => {
 		const shell = createShell();
 		const r = await shell.run('printf "a\\na\\nb\\n" | uniq -c');
-		expect(r.stdout).toContain("2 a");
-		expect(r.stdout).toContain("1 b");
+		expect(r.stdout).toBe("      2 a\n      1 b\n");
 	});
 
 	test("-d only duplicates", async () => {
@@ -258,13 +256,13 @@ describe("wc", () => {
 	test("-l counts lines", async () => {
 		const shell = createShell();
 		const r = await shell.run("wc -l /home/user/lines.txt");
-		expect(r.stdout).toContain("4");
+		expect(r.stdout).toBe("      4 /home/user/lines.txt\n");
 	});
 
 	test("-w counts words", async () => {
 		const shell = createShell();
 		const r = await shell.run("wc -w /home/user/file.txt");
-		expect(r.stdout).toContain("2");
+		expect(r.stdout).toBe("      2 /home/user/file.txt\n");
 	});
 
 	test("stdin", async () => {
@@ -505,13 +503,15 @@ describe("control flow", () => {
 	test("if/then/fi", async () => {
 		const shell = createShell();
 		const r = await shell.run("if true; then echo yes; fi");
-		expect(r.stdout).toContain("yes");
+		expect(r.stdout).toBe("yes\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("if/else", async () => {
 		const shell = createShell();
 		const r = await shell.run("if false; then echo yes; else echo no; fi");
-		expect(r.stdout).toContain("no");
+		expect(r.stdout).toBe("no\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("for loop", async () => {
@@ -529,15 +529,15 @@ describe("control flow", () => {
 	test("case statement", async () => {
 		const shell = createShell();
 		const r = await shell.run("x=hello; case $x in hello) echo matched;; *) echo nope;; esac");
-		expect(r.stdout).toContain("matched");
+		expect(r.stdout).toBe("matched\n");
 	});
 
 	test("command && and ||", async () => {
 		const shell = createShell();
 		const r1 = await shell.run("true && echo yes");
-		expect(r1.stdout).toContain("yes");
+		expect(r1.stdout).toBe("yes\n");
 		const r2 = await shell.run("false || echo fallback");
-		expect(r2.stdout).toContain("fallback");
+		expect(r2.stdout).toBe("fallback\n");
 	});
 
 	test("semicolon preserves both outputs", async () => {
@@ -620,7 +620,8 @@ describe("redirects", () => {
 	test("<<< here-string", async () => {
 		const shell = createShell();
 		const r = await shell.run("cat <<< 'hello world'");
-		expect(r.stdout).toContain("hello world");
+		expect(r.stdout).toBe("hello world\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("2>&1 merges stderr into stdout", async () => {
@@ -628,11 +629,15 @@ describe("redirects", () => {
 		const r = await shell.run("cat /nonexistent 2>&1");
 		expect(r.stdout).toContain("No such file");
 		expect(r.stderr).toBe("");
+		expect(r.exitCode).toBe(1);
 	});
 
 	test("stderr redirect 2> to file", async () => {
 		const shell = createShell();
-		await shell.run("cat /nonexistent 2> /tmp/err");
+		const cmd = await shell.run("cat /nonexistent 2> /tmp/err");
+		expect(cmd.exitCode).toBe(1);
+		expect(cmd.stdout).toBe("");
+		expect(cmd.stderr).toBe("");
 		const r = await shell.run("cat /tmp/err");
 		expect(r.stdout).toContain("No such file");
 	});
@@ -641,7 +646,7 @@ describe("redirects", () => {
 		const shell = createShell();
 		await shell.run("echo hello &> /tmp/both");
 		const r = await shell.run("cat /tmp/both");
-		expect(r.stdout).toContain("hello");
+		expect(r.stdout).toBe("hello\n");
 	});
 });
 
@@ -682,7 +687,10 @@ describe("env and variables", () => {
 		const shell = createShell();
 		await shell.run("readonly X=42");
 		const r = await shell.run("X=99");
-		expect(r.exitCode).not.toBe(0);
+		expect(r.exitCode).toBe(2);
+		expect(r.stderr).toContain("readonly");
+		const check = await shell.run("echo $X");
+		expect(check.stdout).toBe("42\n");
 	});
 
 	test("temporary prefix assignment", async () => {
@@ -715,7 +723,8 @@ describe("error handling", () => {
 		const shell = createShell();
 		const r = await shell.run("wc -l /nonexistent /home/user/lines.txt");
 		expect(r.stderr).toContain("No such file");
-		expect(r.stdout).toContain("4");
+		expect(r.stdout).toBe("      4 /home/user/lines.txt\n      4 total\n");
+		expect(r.exitCode).toBe(1);
 	});
 
 	test("set -eo pipefail combined flags", async () => {
@@ -1183,7 +1192,9 @@ describe("wc edge cases", () => {
 	test("multiple files shows total", async () => {
 		const shell = createShell();
 		const r = await shell.run("wc -l /home/user/lines.txt /home/user/file.txt");
-		expect(r.stdout).toContain("total");
+		expect(r.stdout).toBe(
+			"      4 /home/user/lines.txt\n      1 /home/user/file.txt\n      5 total\n",
+		);
 	});
 
 	test("empty input", async () => {
@@ -1200,20 +1211,45 @@ describe("find", () => {
 		const shell = createShell();
 		await shell.run("cd /home/user");
 		const r = await shell.run("find .");
-		expect(r.stdout).toContain("file.txt");
-		expect(r.stdout).toContain("lines.txt");
+		const lines = r.stdout.trim().split("\n").sort();
+		expect(lines).toEqual([
+			".",
+			"./colon.txt",
+			"./empty.txt",
+			"./file.txt",
+			"./lines.txt",
+			"./mixed.txt",
+			"./numbers.txt",
+			"./spaces.txt",
+			"./tabs.txt",
+		]);
 	});
 
 	test("-name filters files", async () => {
 		const shell = createShell();
 		const r = await shell.run('find /home/user -name "*.txt"');
-		expect(r.stdout).toContain("file.txt");
+		const lines = r.stdout.trim().split("\n").sort();
+		expect(lines).toEqual([
+			"/home/user/colon.txt",
+			"/home/user/empty.txt",
+			"/home/user/file.txt",
+			"/home/user/lines.txt",
+			"/home/user/mixed.txt",
+			"/home/user/numbers.txt",
+			"/home/user/spaces.txt",
+			"/home/user/tabs.txt",
+		]);
 	});
 
 	test("-type f finds only files", async () => {
 		const shell = createShell();
 		const r = await shell.run("find /home -type f");
-		expect(r.stdout).toContain("file.txt");
+		const lines = r.stdout.trim().split("\n");
+		// every entry is a regular file (not the parent dir /home or /home/user)
+		expect(lines).not.toContain("/home");
+		expect(lines).not.toContain("/home/user");
+		expect(lines).toContain("/home/user/file.txt");
+		expect(lines.length).toBe(8);
 	});
 });
 
@@ -1333,7 +1369,7 @@ describe("export and declare", () => {
 		const shell = createShell();
 		await shell.run("export FOO=bar");
 		const r = await shell.run("export -p");
-		expect(r.stdout).toContain("FOO");
+		expect(r.stdout).toContain('declare -x FOO="bar"');
 	});
 
 	test("declare -i treats as integer", async () => {
@@ -1375,7 +1411,8 @@ describe("rm", () => {
 	test("errors on missing file without -f", async () => {
 		const shell = createShell();
 		const r = await shell.run("rm /tmp/nonexistent");
-		expect(r.exitCode).not.toBe(0);
+		expect(r.exitCode).toBe(1);
+		expect(r.stderr).toContain("No such file");
 	});
 });
 
@@ -1385,7 +1422,7 @@ describe("ln", () => {
 		await shell.run("echo content > /tmp/target");
 		await shell.run("ln -s /tmp/target /tmp/link");
 		const r = await shell.run("cat /tmp/link");
-		expect(r.stdout).toContain("content");
+		expect(r.stdout).toBe("content\n");
 	});
 
 	test("-f force overwrites existing link", async () => {
@@ -1395,7 +1432,7 @@ describe("ln", () => {
 		await shell.run("ln -s /tmp/old /tmp/mylink");
 		await shell.run("ln -sf /tmp/new /tmp/mylink");
 		const r = await shell.run("cat /tmp/mylink");
-		expect(r.stdout).toContain("new");
+		expect(r.stdout).toBe("new\n");
 	});
 });
 
@@ -1412,7 +1449,7 @@ describe("touch", () => {
 		await shell.run("echo hello > /tmp/existing");
 		await shell.run("touch /tmp/existing");
 		const r = await shell.run("cat /tmp/existing");
-		expect(r.stdout).toContain("hello");
+		expect(r.stdout).toBe("hello\n");
 	});
 
 	test("creates multiple files", async () => {
@@ -1467,16 +1504,13 @@ describe("awk", () => {
 	test("pattern matching", async () => {
 		const shell = createShell();
 		const r = await shell.run('printf "yes match\\nno skip\\nyes again\\n" | awk "/yes/{print}"');
-		expect(r.stdout).toContain("yes match");
-		expect(r.stdout).toContain("yes again");
-		expect(r.stdout).not.toContain("no skip");
+		expect(r.stdout).toBe("yes match\nyes again\n");
 	});
 
 	test("NR line number", async () => {
 		const shell = createShell();
 		const r = await shell.run("printf \"a\\nb\\nc\\n\" | awk '{print NR, $0}'");
-		expect(r.stdout).toContain("1 a");
-		expect(r.stdout).toContain("3 c");
+		expect(r.stdout).toBe("1 a\n2 b\n3 c\n");
 	});
 });
 
@@ -1496,7 +1530,7 @@ describe("diff", () => {
 		await shell.run("echo world > /tmp/f2");
 		const r = await shell.run("diff /tmp/f1 /tmp/f2");
 		expect(r.exitCode).toBe(1);
-		expect(r.stdout.length).toBeGreaterThan(0);
+		expect(r.stdout).toBe("--- /tmp/f1\n+++ /tmp/f2\n@@ -1,1 +1,1 @@\n-hello\n+world\n");
 	});
 });
 
@@ -1506,9 +1540,8 @@ describe("comm", () => {
 		await shell.run('printf "a\\nc\\n" > /tmp/c1');
 		await shell.run('printf "b\\nc\\n" > /tmp/c2');
 		const r = await shell.run("comm /tmp/c1 /tmp/c2");
-		expect(r.stdout).toContain("a");
-		expect(r.stdout).toContain("b");
-		expect(r.stdout).toContain("c");
+		// col 1: only in file1, col 2: only in file2 (tab prefix), col 3: both (two tabs)
+		expect(r.stdout).toBe("a\n\tb\n\t\tc\n");
 	});
 });
 
@@ -1518,8 +1551,7 @@ describe("join", () => {
 		await shell.run('printf "1 alice\\n2 bob\\n" > /tmp/j1');
 		await shell.run('printf "1 admin\\n2 user\\n" > /tmp/j2');
 		const r = await shell.run("join /tmp/j1 /tmp/j2");
-		expect(r.stdout).toContain("alice");
-		expect(r.stdout).toContain("admin");
+		expect(r.stdout).toBe("1 alice admin\n2 bob user\n");
 	});
 });
 
@@ -1527,18 +1559,13 @@ describe("nl", () => {
 	test("numbers non-blank lines by default", async () => {
 		const shell = createShell();
 		const r = await shell.run("nl /home/user/lines.txt");
-		expect(r.stdout).toContain("1");
-		expect(r.stdout).toContain("alpha");
-		expect(r.stdout).toContain("4");
-		expect(r.stdout).toContain("delta");
+		expect(r.stdout).toBe("     1\talpha\n     2\tbeta\n     3\tgamma\n     4\tdelta\n");
 	});
 
 	test("-b a numbers all lines", async () => {
 		const shell = createShell();
 		const r = await shell.run('printf "a\\n\\nb\\n" | nl -b a');
-		expect(r.stdout).toContain("1");
-		expect(r.stdout).toContain("2");
-		expect(r.stdout).toContain("3");
+		expect(r.stdout).toBe("     1\ta\n     2\t\n     3\tb\n");
 	});
 });
 
@@ -1679,7 +1706,10 @@ describe("date", () => {
 		const shell = createShell();
 		const r = await shell.run("date");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout.trim().length).toBeGreaterThan(0);
+		// e.g. "Tue Apr 21 00:37:32 CEST 2026"
+		expect(r.stdout.trim()).toMatch(
+			/^[A-Z][a-z]{2} [A-Z][a-z]{2} {1,2}\d{1,2} \d{2}:\d{2}:\d{2} \S+ \d{4}$/,
+		);
 	});
 
 	test("+%Y format gives 4-digit year", async () => {
@@ -1701,13 +1731,17 @@ describe("uname", () => {
 		const shell = createShell();
 		const r = await shell.run("uname");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout.trim().length).toBeGreaterThan(0);
+		expect(r.stdout).toBe("FauxOS\n");
 	});
 
 	test("-a shows all info", async () => {
 		const shell = createShell();
 		const r = await shell.run("uname -a");
-		expect(r.stdout.trim().length).toBeGreaterThan(0);
+		expect(r.exitCode).toBe(0);
+		// Includes kernel, hostname, release, machine, OS
+		expect(r.stdout).toContain("FauxOS");
+		expect(r.stdout).toContain("faux-shell");
+		expect(r.stdout).toContain("GNU/Linux");
 	});
 });
 
@@ -1732,13 +1766,15 @@ describe("type and which", () => {
 	test("type identifies builtin", async () => {
 		const shell = createShell();
 		const r = await shell.run("type echo");
-		expect(r.stdout).toContain("builtin");
+		expect(r.stdout).toBe("echo is a shell builtin\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("type identifies keyword", async () => {
 		const shell = createShell();
 		const r = await shell.run("type if");
-		expect(r.stdout).toContain("keyword");
+		expect(r.stdout).toBe("if is a shell keyword\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("type -t returns type word", async () => {
@@ -1796,13 +1832,13 @@ describe("base64", () => {
 		const shell = createShell();
 		const r = await shell.run("echo -n test | base64");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout.trim().length).toBeGreaterThan(0);
+		expect(r.stdout.trim()).toBe("dGVzdA==");
 	});
 
 	test("-d decodes base64", async () => {
 		const shell = createShell();
 		const r = await shell.run("echo -n test | base64 | base64 -d");
-		expect(r.stdout).toContain("test");
+		expect(r.stdout).toBe("test");
 	});
 });
 
@@ -1810,9 +1846,8 @@ describe("expand and unexpand", () => {
 	test("expand converts tabs to spaces", async () => {
 		const shell = createShell();
 		const r = await shell.run("printf 'a\\tb\\n' | expand");
-		expect(r.stdout).not.toContain("\t");
-		expect(r.stdout).toContain("a");
-		expect(r.stdout).toContain("b");
+		// Default tab-stop 8: "a" + 7 spaces to next stop, then "b"
+		expect(r.stdout).toBe("a       b\n");
 	});
 
 	test("expand -t sets tab width", async () => {
@@ -1824,8 +1859,7 @@ describe("expand and unexpand", () => {
 	test("unexpand converts spaces to tabs", async () => {
 		const shell = createShell();
 		const r = await shell.run("printf '        x\\n' | unexpand");
-		expect(r.stdout).toContain("\t");
-		expect(r.stdout).toContain("x");
+		expect(r.stdout).toBe("\tx\n");
 	});
 });
 
@@ -1896,7 +1930,11 @@ describe("tree", () => {
 		const shell = createShell();
 		const r = await shell.run("tree /home/user");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout).toContain("file.txt");
+		// starts with the root path, includes all 8 files, ends with summary
+		expect(r.stdout).toMatch(/^\/home\/user\n/);
+		expect(r.stdout).toContain("├── file.txt");
+		expect(r.stdout).toContain("└── tabs.txt");
+		expect(r.stdout).toMatch(/0 directories, 8 files\n$/);
 	});
 });
 
@@ -1905,7 +1943,8 @@ describe("du", () => {
 		const shell = createShell();
 		const r = await shell.run("du /home/user");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout.trim().length).toBeGreaterThan(0);
+		// Format: "<size>\t<path>\n" — size is a non-negative integer
+		expect(r.stdout).toMatch(/^\d+\t\/home\/user\n$/);
 	});
 });
 
@@ -1983,7 +2022,10 @@ describe("ulimit", () => {
 		const shell = createShell();
 		const r = await shell.run("ulimit -a");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout.length).toBeGreaterThan(0);
+		// -a lists multiple resource limits
+		expect(r.stdout).toContain("core file size");
+		expect(r.stdout).toContain("open files");
+		expect(r.stdout).toContain("stack size");
 	});
 });
 
@@ -2009,7 +2051,9 @@ describe("nested control flow", () => {
 		const r = await shell.run(
 			"x=0; while true; do x=$((x+1)); if [ $x -gt 3 ]; then break; fi; echo $x; done",
 		);
+		// Must produce exactly 1, 2, 3 and stop; a loose toContain would miss a broken break.
 		expect(r.stdout).toBe("1\n2\n3\n");
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("for with break", async () => {
@@ -2100,9 +2144,21 @@ describe("nested control flow", () => {
 describe("multiple redirects", () => {
 	test("stdout and stderr to different files", async () => {
 		const shell = createShell();
+		// echo has no stderr, so /tmp/err should be created but empty.
 		await shell.run("echo ok > /tmp/out 2> /tmp/err");
 		const out = await shell.run("cat /tmp/out");
-		expect(out.stdout).toContain("ok");
+		expect(out.stdout).toBe("ok\n");
+		const err = await shell.run("cat /tmp/err");
+		expect(err.stdout).toBe("");
+	});
+
+	test("stdout and stderr go to correct files when both present", async () => {
+		const shell = createShell();
+		await shell.run("cat /nonexistent > /tmp/o2 2> /tmp/e2");
+		const out = await shell.run("cat /tmp/o2");
+		expect(out.stdout).toBe("");
+		const err = await shell.run("cat /tmp/e2");
+		expect(err.stdout).toContain("No such file");
 	});
 });
 
@@ -2110,10 +2166,7 @@ describe("complex pipelines", () => {
 	test("sort | uniq -c pipeline", async () => {
 		const shell = createShell();
 		const r = await shell.run('printf "b\\na\\nb\\na\\na\\n" | sort | uniq -c');
-		expect(r.stdout).toContain("3");
-		expect(r.stdout).toContain("a");
-		expect(r.stdout).toContain("2");
-		expect(r.stdout).toContain("b");
+		expect(r.stdout).toBe("      3 a\n      2 b\n");
 	});
 
 	test("grep | wc -l counts matches", async () => {
@@ -2153,7 +2206,9 @@ describe("exit codes", () => {
 	test("false in pipeline", async () => {
 		const shell = createShell();
 		const r = await shell.run("false | echo ok");
-		expect(r.stdout).toContain("ok");
+		expect(r.stdout).toBe("ok\n");
+		// Without pipefail, exit code is the last command's (echo succeeds).
+		expect(r.exitCode).toBe(0);
 	});
 
 	test("last command determines exit code in ;", async () => {
@@ -2329,7 +2384,10 @@ describe("df", () => {
 		const shell = createShell();
 		const r = await shell.run("df");
 		expect(r.exitCode).toBe(0);
-		expect(r.stdout.length).toBeGreaterThan(0);
+		// Standard df header + at least one filesystem row
+		expect(r.stdout).toMatch(/^Filesystem .+Mounted on\n/);
+		const lines = r.stdout.trim().split("\n");
+		expect(lines.length).toBeGreaterThanOrEqual(2);
 	});
 });
 
@@ -2366,6 +2424,7 @@ describe("base64 encoding correctness", () => {
 		const shell = createShell();
 		const r = await shell.run('echo -n "" | base64');
 		expect(r.exitCode).toBe(0);
+		expect(r.stdout).toBe("");
 	});
 
 	test("decode reverses encode", async () => {
@@ -2524,18 +2583,23 @@ describe("let builtin", () => {
 });
 
 describe("mapfile/readarray", () => {
-	test("reads lines into array variables", async () => {
+	test("reads lines into array variables preserving newlines", async () => {
 		const shell = createShell();
 		await shell.run('printf "a\\nb\\nc\\n" | mapfile ARR');
-		const r = await shell.run("echo $ARR_0");
-		expect(r.stdout).toContain("a");
+		// Without -t, each entry retains its trailing newline; echo adds another.
+		const r0 = await shell.run("echo $ARR_0");
+		expect(r0.stdout).toBe("a\n\n");
+		const r2 = await shell.run("echo $ARR_2");
+		expect(r2.stdout).toBe("c\n\n");
 	});
 
 	test("-t strips trailing newlines", async () => {
 		const shell = createShell();
 		await shell.run('printf "hello\\nworld\\n" | mapfile -t M');
-		const r = await shell.run("echo $M_0");
-		expect(r.stdout.trim()).toBe("hello");
+		const r0 = await shell.run("echo $M_0");
+		expect(r0.stdout).toBe("hello\n");
+		const r1 = await shell.run("echo $M_1");
+		expect(r1.stdout).toBe("world\n");
 	});
 });
 

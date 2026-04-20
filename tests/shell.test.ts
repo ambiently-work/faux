@@ -98,9 +98,7 @@ describe("Shell", () => {
 		test("simple pipe", async () => {
 			const shell = createShell();
 			const r = await shell.run("cat /etc/hosts | grep localhost");
-			expect(r.stdout).toContain("127.0.0.1 localhost");
-			expect(r.stdout).toContain("::1 localhost");
-			expect(r.stdout).not.toContain("router");
+			expect(r.stdout).toBe("127.0.0.1 localhost\n::1 localhost\n");
 		});
 
 		test("multi-stage pipe", async () => {
@@ -177,14 +175,13 @@ describe("Shell", () => {
 			await shell.run("echo line1 > /tmp/append.txt");
 			await shell.run("echo line2 >> /tmp/append.txt");
 			const r = await shell.run("cat /tmp/append.txt");
-			expect(r.stdout).toContain("line1");
-			expect(r.stdout).toContain("line2");
+			expect(r.stdout).toBe("line1\nline2\n");
 		});
 
 		test("input redirect", async () => {
 			const shell = createShell();
 			const r = await shell.run("grep localhost < /etc/hosts");
-			expect(r.stdout).toContain("localhost");
+			expect(r.stdout).toBe("127.0.0.1 localhost\n::1 localhost\n");
 		});
 	});
 
@@ -200,7 +197,8 @@ describe("Shell", () => {
 		test("uniq", async () => {
 			const shell = createShell();
 			const r = await shell.run("cat /home/user/numbers.txt | sort -n | uniq");
-			expect(r.stdout).not.toMatch(/^1\n1$/m);
+			// Input has two 1s → uniq collapses them; result is every distinct value in order.
+			expect(r.stdout).toBe("1\n2\n3\n4\n5\n6\n9\n");
 		});
 
 		test("wc", async () => {
@@ -304,7 +302,9 @@ describe("Shell", () => {
 			const shell = createShell();
 			const r = await shell.run("date");
 			expect(r.exitCode).toBe(0);
-			expect(r.stdout.length).toBeGreaterThan(0);
+			expect(r.stdout.trim()).toMatch(
+				/^[A-Z][a-z]{2} [A-Z][a-z]{2} {1,2}\d{1,2} \d{2}:\d{2}:\d{2} \S+ \d{4}$/,
+			);
 		});
 
 		test("uname -a", async () => {
@@ -338,7 +338,7 @@ describe("Shell", () => {
 		test("base64 encode", async () => {
 			const shell = createShell();
 			const r = await shell.run("echo -n hello | base64");
-			expect(r.stdout.trim()).toStartWith("aGVsbG8");
+			expect(r.stdout.trim()).toBe("aGVsbG8=");
 		});
 
 		test("tree", async () => {
@@ -346,7 +346,7 @@ describe("Shell", () => {
 			await shell.run("mkdir -p /tmp/a/b");
 			const r = await shell.run("tree /tmp");
 			expect(r.exitCode).toBe(0);
-			expect(r.stdout).toContain("a");
+			expect(r.stdout).toBe("/tmp\n└── a\n    └── b\n\n2 directories, 0 files\n");
 		});
 
 		test("find", async () => {
