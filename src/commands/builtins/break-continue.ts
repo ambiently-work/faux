@@ -1,5 +1,5 @@
-import { command } from "../builder.js";
 import { ShellBreak, ShellContinue } from "../../executor/pipeline.js";
+import { command } from "../builder.js";
 
 function parseLevels(
 	name: string,
