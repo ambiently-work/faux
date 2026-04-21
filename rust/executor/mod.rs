@@ -313,7 +313,14 @@ impl Executor {
             self.bridge.env_set_positional_args(new_args);
             let result = self.execute_node(&func_ast, &effective_stdin).await;
             self.bridge.env_set_positional_args(old_args);
-            return result;
+            return match result {
+                Err(Signal::Return(code)) => Ok(ShellResult {
+                    stdout: String::new(),
+                    stderr: String::new(),
+                    exit_code: code,
+                }),
+                other => other,
+            };
         }
 
         // Execute via bridge
@@ -327,6 +334,34 @@ impl Executor {
             .execute_command(&name, args_js, &effective_stdin, redirects_js);
         match JsFuture::from(promise).await {
             Ok(val) => {
+                // Check for a shell control-flow signal from a builtin (break, continue, exit, return).
+                let signal_str = Reflect::get(&val, &"signal".into())
+                    .ok()
+                    .and_then(|v| v.as_string());
+                if let Some(sig) = signal_str {
+                    let exit_code = Reflect::get(&val, &"exitCode".into())
+                        .ok()
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as i32;
+                    let levels = Reflect::get(&val, &"levels".into())
+                        .ok()
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(1.0) as i32;
+                    for (name, value) in saved_vars {
+                        match value {
+                            Some(v) => self.bridge.env_set(&name, &v),
+                            None => self.bridge.env_set(&name, ""),
+                        }
+                    }
+                    return match sig.as_str() {
+                        "break" => Err(Signal::Break(levels)),
+                        "continue" => Err(Signal::Continue(levels)),
+                        "exit" => Err(Signal::Exit(exit_code)),
+                        "return" => Err(Signal::Return(exit_code)),
+                        _ => Ok(ShellResult::empty()),
+                    };
+                }
+
                 let mut result = ShellResult::from_js(&val);
 
                 // Apply output redirects on the Rust side

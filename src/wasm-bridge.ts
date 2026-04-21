@@ -2,6 +2,7 @@ import type { IFileSystem } from "@ambiently-work/mirage";
 import type { CommandRegistry } from "./commands/registry.js";
 import type { CommandContext } from "./commands/types.js";
 import type { Environment } from "./env/environment.js";
+import { ShellBreak, ShellContinue, ShellExit, ShellReturn } from "./executor/pipeline.js";
 import { WritableBuffer } from "./io/stream.js";
 import { parse } from "./parser/index.js";
 import type { ShellResult } from "./types.js";
@@ -120,7 +121,7 @@ export class ShellBridge {
 		args: string[],
 		stdin: string,
 		_redirects: unknown,
-	): Promise<ShellResult> {
+	): Promise<ShellResult & { signal?: string; levels?: number }> {
 		const stdout = new WritableBuffer();
 		const stderr = new WritableBuffer();
 
@@ -162,6 +163,40 @@ export class ShellBridge {
 			const exitCode = await handler.execute(ctx);
 			return { stdout: stdout.toString(), stderr: stderr.toString(), exitCode };
 		} catch (e) {
+			if (e instanceof ShellBreak) {
+				return {
+					stdout: stdout.toString(),
+					stderr: stderr.toString(),
+					exitCode: 0,
+					signal: "break",
+					levels: e.levels,
+				};
+			}
+			if (e instanceof ShellContinue) {
+				return {
+					stdout: stdout.toString(),
+					stderr: stderr.toString(),
+					exitCode: 0,
+					signal: "continue",
+					levels: e.levels,
+				};
+			}
+			if (e instanceof ShellExit) {
+				return {
+					stdout: stdout.toString(),
+					stderr: stderr.toString(),
+					exitCode: e.code,
+					signal: "exit",
+				};
+			}
+			if (e instanceof ShellReturn) {
+				return {
+					stdout: stdout.toString(),
+					stderr: stderr.toString(),
+					exitCode: e.code,
+					signal: "return",
+				};
+			}
 			const message = e instanceof Error ? e.message : String(e);
 			stderr.writeln(`${name}: ${message}`);
 			return { stdout: stdout.toString(), stderr: stderr.toString(), exitCode: 1 };
