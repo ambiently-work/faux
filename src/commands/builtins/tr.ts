@@ -229,7 +229,8 @@ export const tr = command("tr")
 			let prevChar = "";
 
 			for (let j = 0; j < input.length; j++) {
-				const ch = translateMap.has(input[j]) ? translateMap.get(input[j])! : input[j];
+				const mapped = translateMap.get(input[j]);
+				const ch = mapped ?? input[j];
 				if (squeezeChars?.has(ch) && ch === prevChar) {
 					continue;
 				}

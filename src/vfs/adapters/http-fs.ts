@@ -40,8 +40,11 @@ export class HttpFileSystem implements IFileSystem {
 
 	private fetchSync(path: string): string {
 		// Check cache first
-		if (this.cacheEnabled && this.fileCache.has(path)) {
-			return this.fileCache.get(path)!;
+		if (this.cacheEnabled) {
+			const cached = this.fileCache.get(path);
+			if (cached !== undefined) {
+				return cached;
+			}
 		}
 
 		// Since IFileSystem is synchronous but fetch is async,

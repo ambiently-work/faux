@@ -28,9 +28,15 @@ type AwkExpr =
 	| { type: "unary"; op: string; expr: AwkExpr }
 	| { type: "incr"; expr: AwkExpr; pre: boolean }
 	| { type: "decr"; expr: AwkExpr; pre: boolean }
-	| { type: "match"; expr: AwkExpr; regex: RegExp; negate: boolean }
+	| {
+			type: "match";
+			expr: AwkExpr;
+			regex: RegExp;
+			negate: boolean;
+			dynRegex?: AwkExpr;
+	  }
 	| { type: "regex_literal"; regex: RegExp }
-	| { type: "ternary"; cond: AwkExpr; then: AwkExpr; else: AwkExpr }
+	| { type: "ternary"; cond: AwkExpr; consequent: AwkExpr; else: AwkExpr }
 	| { type: "concat"; parts: AwkExpr[] }
 	| { type: "call"; name: string; args: AwkExpr[] }
 	| { type: "in"; name: string; index: AwkExpr }
@@ -41,7 +47,7 @@ type AwkStatement =
 	| { type: "expr"; expr: AwkExpr }
 	| { type: "print"; args: AwkExpr[]; dest?: AwkExpr }
 	| { type: "printf"; format: AwkExpr; args: AwkExpr[]; dest?: AwkExpr }
-	| { type: "if"; cond: AwkExpr; then: AwkStatement[]; else?: AwkStatement[] }
+	| { type: "if"; cond: AwkExpr; consequent: AwkStatement[]; else?: AwkStatement[] }
 	| { type: "while"; cond: AwkExpr; body: AwkStatement[] }
 	| {
 			type: "for";
@@ -340,7 +346,8 @@ class Parser {
 			this.skipNewlines();
 			if (this.pos >= this.tokens.length) break;
 
-			const tok = this.peek()!;
+			const tok = this.peek();
+			if (!tok) break;
 
 			if (tok.type === "BEGIN") {
 				this.consume();
@@ -510,7 +517,7 @@ class Parser {
 			// Just return the first for simplicity, or wrap
 			return stmts.length === 1
 				? stmts[0]
-				: { type: "if", cond: { type: "number", value: 1 }, then: stmts };
+				: { type: "if", cond: { type: "number", value: 1 }, consequent: stmts };
 		}
 
 		const expr = this.parseExpr();
@@ -598,7 +605,7 @@ class Parser {
 			}
 		}
 
-		return { type: "if", cond, then: thenStmts, else: elseStmts };
+		return { type: "if", cond, consequent: thenStmts, else: elseStmts };
 	}
 
 	parseWhile(): AwkStatement {
@@ -722,10 +729,10 @@ class Parser {
 		const cond = this.parseOr();
 		if (this.peek()?.value === "?") {
 			this.consume();
-			const then = this.parseExpr();
+			const consequent = this.parseExpr();
 			this.expect(":");
 			const els = this.parseExpr();
-			return { type: "ternary", cond, then, else: els };
+			return { type: "ternary", cond, consequent, else: els };
 		}
 		return cond;
 	}
@@ -770,10 +777,13 @@ class Parser {
 				left = { type: "match", expr: left, regex: new RegExp(tok.value), negate };
 			} else {
 				const right = this.parseComparison();
-				// Dynamic regex from expression
-				left = { type: "match", expr: left, regex: /(?:)/, negate };
-				// Store the expr for runtime evaluation
-				(left as any).dynRegex = right;
+				left = {
+					type: "match",
+					expr: left,
+					regex: /(?:)/,
+					negate,
+					dynRegex: right,
+				};
 			}
 		}
 		return left;
@@ -1128,8 +1138,8 @@ class AwkRuntime {
 			case "match": {
 				const str = this.toStr(this.evalExpr(expr.expr));
 				let regex = expr.regex;
-				if ((expr as any).dynRegex) {
-					regex = new RegExp(this.toStr(this.evalExpr((expr as any).dynRegex)));
+				if (expr.dynRegex) {
+					regex = new RegExp(this.toStr(this.evalExpr(expr.dynRegex)));
 				}
 				const result = regex.test(str);
 				return result !== expr.negate ? 1 : 0;
@@ -1140,7 +1150,7 @@ class AwkRuntime {
 			}
 			case "ternary": {
 				return this.isTruthy(this.evalExpr(expr.cond))
-					? this.evalExpr(expr.then)
+					? this.evalExpr(expr.consequent)
 					: this.evalExpr(expr.else);
 			}
 			case "concat": {
@@ -1303,8 +1313,11 @@ class AwkRuntime {
 						parts = str.split(sep);
 					}
 				}
-				if (!this.arrays.has(arrName)) this.arrays.set(arrName, new Map());
-				const arr = this.arrays.get(arrName)!;
+				let arr = this.arrays.get(arrName);
+				if (!arr) {
+					arr = new Map();
+					this.arrays.set(arrName, arr);
+				}
 				arr.clear();
 				for (let i = 0; i < parts.length; i++) {
 					arr.set(String(i + 1), parts[i]);
@@ -1360,9 +1373,10 @@ class AwkRuntime {
 				}
 				const m = str.match(regex);
 				if (m) {
-					this.vars.set("RSTART", m.index! + 1);
+					const idx = m.index ?? 0;
+					this.vars.set("RSTART", idx + 1);
 					this.vars.set("RLENGTH", m[0].length);
-					return m.index! + 1;
+					return idx + 1;
 				}
 				this.vars.set("RSTART", 0);
 				this.vars.set("RLENGTH", -1);
@@ -1439,7 +1453,7 @@ class AwkRuntime {
 			}
 			case "if": {
 				if (this.isTruthy(this.evalExpr(stmt.cond))) {
-					this.execStatements(stmt.then);
+					this.execStatements(stmt.consequent);
 				} else if (stmt.else) {
 					this.execStatements(stmt.else);
 				}
@@ -1795,8 +1809,9 @@ export const awk = command("awk")
 			const tokens = tokenize(program);
 			const parser = new Parser(tokens);
 			rules = parser.parseProgram();
-		} catch (e: any) {
-			ctx.stderr.writeln(`awk: syntax error: ${e.message ?? e}`);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			ctx.stderr.writeln(`awk: syntax error: ${msg}`);
 			return 2;
 		}
 

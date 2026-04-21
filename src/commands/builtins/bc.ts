@@ -4,7 +4,7 @@ export const bc = command("bc")
 	.description("An arbitrary precision calculator language")
 	.flag("-l, --mathlib", "Use the standard math library")
 	.argument("[files...]", "Input files")
-	.action((ctx, { args, flags }) => {
+	.action((ctx, { args }) => {
 		let input = ctx.stdin.trim();
 		if (args.length > 0) {
 			// Read from files

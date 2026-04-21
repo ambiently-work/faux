@@ -507,8 +507,9 @@ export class Command {
 
 		// Apply defaults for missing positional args
 		for (let a = 0; a < this._args.length; a++) {
-			if (positional[a] === undefined && this._args[a].default !== undefined) {
-				positional[a] = this._args[a].default!;
+			const defaultValue = this._args[a].default;
+			if (positional[a] === undefined && defaultValue !== undefined) {
+				positional[a] = defaultValue;
 			}
 		}
 
