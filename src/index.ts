@@ -19,6 +19,16 @@ export {
 } from "./commands/builder.js";
 export { type BiomeInstance, createBiomeCommand } from "./commands/builtins/biome.js";
 export { createNodeCommand, type NodeCommandOptions } from "./commands/builtins/node.js";
+export {
+	createTreeSitterCommand,
+	type TreeSitterCommandOptions,
+	type TreeSitterInstance,
+	type TreeSitterLanguage,
+	type TreeSitterNode,
+	type TreeSitterParser,
+	type TreeSitterPoint,
+	type TreeSitterTree,
+} from "./commands/builtins/tree-sitter.js";
 export { CommandRegistry } from "./commands/registry.js";
 export type { CommandContext, CommandHandler } from "./commands/types.js";
 export { Environment } from "./env/environment.js";
