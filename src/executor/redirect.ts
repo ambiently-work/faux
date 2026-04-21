@@ -1,6 +1,6 @@
+import type { IFileSystem } from "@ambiently-work/vfs";
 import type { Environment } from "../env/environment.js";
 import type { Redirect } from "../parser/index.js";
-import type { IFileSystem } from "../vfs/types.js";
 import { expandWord, type SubExecFn } from "./expansion/index.js";
 
 export interface ResolvedRedirect {

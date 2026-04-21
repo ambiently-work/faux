@@ -1,9 +1,9 @@
+import { useWasmGlob } from "@ambiently-work/vfs";
 import {
 	useWasmArithmetic,
 	useWasmBraces,
 	useWasmGlobToRegex,
 } from "./executor/expansion/index.js";
-import { useWasmGlob } from "./vfs/glob.js";
 import type {
 	WasmArithmeticModule,
 	WasmBraceModule,

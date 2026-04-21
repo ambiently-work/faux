@@ -104,7 +104,7 @@ function listEntries(
 		return printEntry(ctx, flags, resolved, dirPath);
 	}
 
-	let st: import("../../vfs/types.js").VfsStats;
+	let st: import("@ambiently-work/vfs").VfsStats;
 	try {
 		st = ctx.fs.stat(resolved);
 	} catch {
@@ -207,8 +207,8 @@ function sortEntries(ctx: CommandContext, flags: LsFlags, entries: EntryInfo[]):
 
 function printLong(ctx: CommandContext, flags: LsFlags, entries: EntryInfo[]): void {
 	for (const entry of entries) {
-		let st: import("../../vfs/types.js").VfsStats;
-		let lst: import("../../vfs/types.js").VfsStats;
+		let st: import("@ambiently-work/vfs").VfsStats;
+		let lst: import("@ambiently-work/vfs").VfsStats;
 		try {
 			lst = ctx.fs.lstat(entry.fullPath);
 			st = lst.isSymlink() ? ctx.fs.stat(entry.fullPath) : lst;

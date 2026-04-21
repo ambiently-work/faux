@@ -1,10 +1,10 @@
+import type { IFileSystem } from "@ambiently-work/vfs";
 import type { CommandRegistry } from "../commands/registry.js";
 import type { CommandContext } from "../commands/types.js";
 import type { Environment } from "../env/environment.js";
 import { WritableBuffer } from "../io/stream.js";
 import { type AstNode, parse } from "../parser/index.js";
 import type { ShellResult } from "../types.js";
-import type { IFileSystem } from "../vfs/types.js";
 import type { SubExecFn } from "./expansion/index.js";
 
 export interface ExecutorContext {

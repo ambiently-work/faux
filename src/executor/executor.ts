@@ -1,3 +1,4 @@
+import type { IFileSystem } from "@ambiently-work/vfs";
 import type { CommandRegistry } from "../commands/registry.js";
 import type { Environment } from "../env/environment.js";
 import {
@@ -20,7 +21,6 @@ import {
 	type Word,
 } from "../parser/index.js";
 import type { ShellResult } from "../types.js";
-import type { IFileSystem } from "../vfs/types.js";
 import { evaluateArithmetic, expandGlob, expandWord } from "./expansion/index.js";
 import {
 	type ExecutorContext,

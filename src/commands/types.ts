@@ -1,6 +1,6 @@
+import type { IFileSystem } from "@ambiently-work/vfs";
 import type { Environment } from "../env/environment.js";
 import type { WritableBuffer } from "../io/stream.js";
-import type { IFileSystem } from "../vfs/types.js";
 
 export interface CommandContext {
 	/** Arguments passed to the command (argv[1:]) */

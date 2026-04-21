@@ -1,3 +1,4 @@
+import { type IFileSystem, VirtualFileSystem } from "@ambiently-work/vfs";
 import { allBuiltins } from "./commands/builtins/index.js";
 import { CommandRegistry } from "./commands/registry.js";
 import type { CommandHandler } from "./commands/types.js";
@@ -14,8 +15,6 @@ import {
 import { type AstNode, parse } from "./parser/index.js";
 import { CommandTracker } from "./tracker.js";
 import type { ShellResult } from "./types.js";
-import { VirtualFileSystem } from "./vfs/filesystem.js";
-import type { IFileSystem } from "./vfs/types.js";
 import { ShellBridge } from "./wasm-bridge.js";
 import type { WasmRuntimeModule } from "./wasm-interfaces.js";
 import { getWasmExecutor, getWasmParser, useWasmRuntime } from "./wasm-runtime.js";

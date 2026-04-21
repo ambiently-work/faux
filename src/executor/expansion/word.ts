@@ -1,6 +1,6 @@
+import type { IFileSystem } from "@ambiently-work/vfs";
 import type { Environment } from "../../env/environment.js";
 import type { AstNode, Word, WordPart } from "../../parser/index.js";
-import type { IFileSystem } from "../../vfs/types.js";
 import { evaluateArithmetic } from "./arithmetic.js";
 import { expandVariable, expandVariableOp } from "./parameter.js";
 

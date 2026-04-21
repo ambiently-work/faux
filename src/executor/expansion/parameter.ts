@@ -1,6 +1,6 @@
+import type { IFileSystem } from "@ambiently-work/vfs";
 import type { Environment } from "../../env/environment.js";
 import type { Word } from "../../parser/index.js";
-import type { IFileSystem } from "../../vfs/types.js";
 import { globToRegex } from "./glob.js";
 import { expandWord, type SubExecFn } from "./word.js";
 

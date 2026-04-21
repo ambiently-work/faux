@@ -1,4 +1,15 @@
 export {
+	HttpFileSystem,
+	type HttpFileSystemOptions,
+	type IFileSystem,
+	LayeredFileSystem,
+	ObjectFileSystem,
+	ReadOnlyFileSystem,
+	useWasmGlob,
+	type VfsStats,
+	VirtualFileSystem,
+} from "@ambiently-work/vfs";
+export {
 	type ActionFn,
 	Command,
 	command,
@@ -43,13 +54,6 @@ export {
 	truncateLines,
 } from "./transforms.js";
 export type { ShellResult } from "./types.js";
-export { HttpFileSystem, type HttpFileSystemOptions } from "./vfs/adapters/http-fs.js";
-export { LayeredFileSystem } from "./vfs/adapters/layered.js";
-export { ObjectFileSystem } from "./vfs/adapters/object-fs.js";
-export { ReadOnlyFileSystem } from "./vfs/adapters/read-only.js";
-export { VirtualFileSystem } from "./vfs/filesystem.js";
-export { useWasmGlob } from "./vfs/glob.js";
-export type { IFileSystem, VfsStats } from "./vfs/types.js";
 export { ShellBridge } from "./wasm-bridge.js";
 export type {
 	WasmArithmeticModule,
