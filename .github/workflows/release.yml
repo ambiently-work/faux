@@ -78,18 +78,18 @@ jobs:
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch faux-shell-released to ambient-agent-sdk
+      - name: Dispatch faux-released to agent-sdk
         env:
           GH_TOKEN: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
           VERSION: ${{ needs.release-please.outputs.version }}
           TAG: ${{ needs.release-please.outputs.tag_name }}
-          PACKAGE: "@ambiently-work/faux-shell"
+          PACKAGE: "@ambiently-work/faux"
         run: |
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
-            /repos/ambiently-work/ambient-agent-sdk/dispatches \
-            -f event_type=faux-shell-released \
+            /repos/ambiently-work/agent-sdk/dispatches \
+            -f event_type=faux-released \
             -F "client_payload[version]=$VERSION" \
             -F "client_payload[tag]=$TAG" \
             -F "client_payload[package]=$PACKAGE"
