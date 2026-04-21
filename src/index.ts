@@ -39,6 +39,43 @@ export { WritableBuffer } from "./io/stream.js";
 export type { AstNode, Redirect, Word, WordPart } from "./parser/index.js";
 export { parse, useWasmParser } from "./parser/index.js";
 export { Shell, type ShellOptions } from "./shell.js";
+export {
+	createDefaultTools,
+	type DefaultToolsOptions,
+	EditTool,
+	type EditToolOptions,
+	type EditToolResult,
+	GlobTool,
+	type GlobToolOptions,
+	type GlobToolResult,
+	type GrepMatch,
+	GrepTool,
+	type GrepToolOptions,
+	type GrepToolResult,
+	type LsEntry,
+	type LspDiagnostic,
+	LspTool,
+	type LspToolOptions,
+	type LspToolResult,
+	LsTool,
+	type LsToolOptions,
+	type LsToolResult,
+	ReadTool,
+	type ReadToolOptions,
+	type ReadToolResult,
+	type Result,
+	ShellSession,
+	ShellTool,
+	type ShellToolOptions,
+	Tool,
+	type ToolCall,
+	type ToolError,
+	ToolRegistry,
+	type ToolResult,
+	WriteTool,
+	type WriteToolOptions,
+	type WriteToolResult,
+} from "./tools/index.js";
 export { CommandTracker, type TrackerStats } from "./tracker.js";
 export {
 	collapseSpaces,
