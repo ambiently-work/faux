@@ -3,7 +3,7 @@
 	"release-type": "node",
 	"packages": {
 		".": {
-			"package-name": "@ambiently-work/faux-shell",
+			"package-name": "@ambiently-work/faux",
 			"changelog-path": "CHANGELOG.md"
 		}
 	},

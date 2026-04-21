@@ -5,24 +5,24 @@ description: Create a virtual shell and start running commands in under 5 minute
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-This guide walks you through the basics of faux-shell: creating a shell instance, running commands, working with the virtual filesystem, using variables and control flow, and registering custom commands.
+This guide walks you through the basics of faux: creating a shell instance, running commands, working with the virtual filesystem, using variables and control flow, and registering custom commands.
 
 ## 1. Install
 
 <Tabs>
   <TabItem label="bun">
     ```bash
-    bun add faux-shell
+    bun add @ambiently-work/faux
     ```
   </TabItem>
   <TabItem label="npm">
     ```bash
-    npm install faux-shell
+    npm install @ambiently-work/faux
     ```
   </TabItem>
   <TabItem label="pnpm">
     ```bash
-    pnpm add faux-shell
+    pnpm add @ambiently-work/faux
     ```
   </TabItem>
 </Tabs>
@@ -30,7 +30,7 @@ This guide walks you through the basics of faux-shell: creating a shell instance
 ## 2. Create a shell instance
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({
   env: {
@@ -133,7 +133,7 @@ This is useful for inspecting state in tests or serializing the filesystem.
 
 ## 5. Variables and control flow
 
-faux-shell supports shell variables, arithmetic, and control flow constructs.
+faux supports shell variables, arithmetic, and control flow constructs.
 
 ### Variables
 
@@ -187,7 +187,7 @@ console.log(result.stdout); // "There are 4 names\n"
 You can add your own commands alongside the 111 built-ins. A command handler has a `name` and an `execute` function that receives a `CommandContext`:
 
 ```typescript
-import { Shell, type CommandHandler } from "@ambiently-work/faux-shell";
+import { Shell, type CommandHandler } from "@ambiently-work/faux";
 
 const fetchUrl: CommandHandler = {
   name: "fetch-url",

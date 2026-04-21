@@ -1,4 +1,4 @@
-# faux-shell
+# faux
 
 A POSIX-ish shell that runs **entirely in-process** — no `child_process`, no subshell, no OS dependency. Bring your own environment and virtual filesystem, execute real shell syntax against it, and get structured output back.
 
@@ -8,15 +8,15 @@ Designed for sandboxes, agents, browser REPLs, and anywhere you want shell seman
 
 | Package                                                                  | npm                                                                                                                     | What it does                                             |
 | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [`@ambiently-work/faux-shell`](./packages/core)                               | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-shell.svg)](https://www.npmjs.com/package/@ambiently-work/faux-shell)                               | The `Shell`, virtual FS, builtins, env.                  |
-| [`@ambiently-work/faux-shell-parser`](./packages/parser)                      | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-shell-parser.svg)](https://www.npmjs.com/package/@ambiently-work/faux-shell-parser)                 | POSIX shell grammar → AST.                               |
-| [`@ambiently-work/faux-shell-wasm`](./packages/wasm)                          | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-shell-wasm.svg)](https://www.npmjs.com/package/@ambiently-work/faux-shell-wasm)                     | Rust/WASM accelerated runtime (glob, arithmetic, etc.).  |
-| [`@ambiently-work/faux-shell-cli`](./packages/cli)                            | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-shell-cli.svg)](https://www.npmjs.com/package/@ambiently-work/faux-shell-cli)                       | Interactive REPL (requires Bun).                         |
+| [`@ambiently-work/faux`](./packages/core)                               | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux.svg)](https://www.npmjs.com/package/@ambiently-work/faux)                               | The `Shell`, virtual FS, builtins, env.                  |
+| [`@ambiently-work/faux-parser`](./packages/parser)                      | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-parser.svg)](https://www.npmjs.com/package/@ambiently-work/faux-parser)                 | POSIX shell grammar → AST.                               |
+| [`@ambiently-work/faux-wasm`](./packages/wasm)                          | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-wasm.svg)](https://www.npmjs.com/package/@ambiently-work/faux-wasm)                     | Rust/WASM accelerated runtime (glob, arithmetic, etc.).  |
+| [`@ambiently-work/faux-cli`](./packages/cli)                            | [![npm](https://img.shields.io/npm/v/@ambiently-work/faux-cli.svg)](https://www.npmjs.com/package/@ambiently-work/faux-cli)                       | Interactive REPL (requires Bun).                         |
 
 ## Quick start
 
 ```ts
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({
   user: "luca",

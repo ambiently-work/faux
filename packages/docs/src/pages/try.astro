@@ -1,5 +1,5 @@
 ---
-const title = "faux-shell — Try it in your browser";
+const title = "faux — Try it in your browser";
 const description =
 	"A live POSIX-ish shell running entirely in your browser. 100+ bash commands, in-memory VFS, zero dependencies.";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -21,17 +21,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 		<header class="bar">
 			<a class="brand" href={`${base}/`}>
 				<span class="mark">▮</span>
-				<span>faux-shell</span>
+				<span>faux</span>
 			</a>
 			<nav>
 				<a href={`${base}/guides/introduction/`}>Docs</a>
 				<a
-					href="https://github.com/ambiently-work/faux-shell"
+					href="https://github.com/ambiently-work/faux"
 					target="_blank"
 					rel="noreferrer">GitHub</a
 				>
 				<a
-					href="https://www.npmjs.com/package/@ambiently-work/faux-shell"
+					href="https://www.npmjs.com/package/@ambiently-work/faux"
 					target="_blank"
 					rel="noreferrer">npm</a
 				>
@@ -56,7 +56,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 			import { Terminal } from "@xterm/xterm";
 			import { FitAddon } from "@xterm/addon-fit";
 			import { WebLinksAddon } from "@xterm/addon-web-links";
-			import { Shell } from "@ambiently-work/faux-shell";
+			import { Shell } from "@ambiently-work/faux";
 
 			const RESET = "\x1b[0m";
 			const BOLD = "\x1b[1m";
@@ -78,7 +78,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 				cwd: "/home/guest",
 				fs: {
 					"/home/guest/README.md":
-						"# Welcome to faux-shell\n\nThis is a virtual bash shell running **entirely in your browser**.\nNo network, no server, no real filesystem — just JavaScript.\n\n## Try these\n\n    ls\n    cat README.md\n    find . -type f\n    echo 'hello, world' | rev\n    seq 1 10 | awk '{ s += $1 } END { print s }'\n\n## What works\n\n- Pipes, redirects, subshells\n- Variables and expansions\n- Control flow (if/for/while/case)\n- Functions\n- 100+ built-in commands\n",
+						"# Welcome to faux\n\nThis is a virtual bash shell running **entirely in your browser**.\nNo network, no server, no real filesystem — just JavaScript.\n\n## Try these\n\n    ls\n    cat README.md\n    find . -type f\n    echo 'hello, world' | rev\n    seq 1 10 | awk '{ s += $1 } END { print s }'\n\n## What works\n\n- Pipes, redirects, subshells\n- Variables and expansions\n- Control flow (if/for/while/case)\n- Functions\n- 100+ built-in commands\n",
 					"/home/guest/examples/hello.sh":
 						'#!/bin/bash\necho "Hello from faux-shell!"\nfor i in 1 2 3; do\n  echo "  count: $i"\ndone\n',
 					"/home/guest/examples/data.csv":
@@ -86,7 +86,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 					"/home/guest/examples/pipeline.sh":
 						"#!/bin/bash\n# Count words per line, sorted descending\ncat data.csv | tail -n +2 | cut -d, -f1 | sort\n",
 					"/etc/motd":
-						"Welcome to faux-shell — a virtual bash shell running in your browser.\n",
+						"Welcome to faux — a virtual bash shell running in your browser.\n",
 				},
 			});
 
@@ -94,7 +94,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 				name: "help",
 				execute(ctx) {
 					const w = (s: string) => ctx.stdout.writeln(s);
-					w(`${BOLD}faux-shell${RESET} — virtual bash shell`);
+					w(`${BOLD}faux${RESET} — virtual bash shell`);
 					w("");
 					w(`${CYAN}Navigation${RESET}`);
 					w("  cd, ls, pwd, tree, find");
@@ -142,15 +142,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 			shell.register({
 				name: "about",
 				execute(ctx) {
-					ctx.stdout.writeln(`${BOLD}faux-shell${RESET}`);
+					ctx.stdout.writeln(`${BOLD}faux${RESET}`);
 					ctx.stdout.writeln(
 						`${DIM}A POSIX-ish shell that runs entirely in-process.${RESET}`,
 					);
 					ctx.stdout.writeln("");
-					ctx.stdout.writeln(`  ${CYAN}npm${RESET}     @ambiently-work/faux-shell`);
+					ctx.stdout.writeln(`  ${CYAN}npm${RESET}     @ambiently-work/faux`);
 					ctx.stdout.writeln(`  ${CYAN}docs${RESET}    ${location.origin}${base}/`);
 					ctx.stdout.writeln(
-						`  ${CYAN}source${RESET}  https://github.com/ambiently-work/faux-shell`,
+						`  ${CYAN}source${RESET}  https://github.com/ambiently-work/faux`,
 					);
 					return 0;
 				},
@@ -287,7 +287,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 				const lines = [
 					"",
 					`  ${BOLD}${CYAN}╭─────────────────────────────────────────────╮${RESET}`,
-					`  ${BOLD}${CYAN}│${RESET}  ${BOLD}faux-shell${RESET} ${DIM}·${RESET} virtual bash in your browser  ${BOLD}${CYAN}│${RESET}`,
+					`  ${BOLD}${CYAN}│${RESET}  ${BOLD}faux${RESET} ${DIM}·${RESET} virtual bash in your browser  ${BOLD}${CYAN}│${RESET}`,
 					`  ${BOLD}${CYAN}│${RESET}  ${DIM}${shell.commands.length} built-in commands · in-memory VFS${RESET}     ${BOLD}${CYAN}│${RESET}`,
 					`  ${BOLD}${CYAN}╰─────────────────────────────────────────────╯${RESET}`,
 					"",

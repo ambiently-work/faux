@@ -5,14 +5,14 @@ description: "How to use the in-memory virtual filesystem: seeding files, path r
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-faux-shell includes a complete in-memory virtual filesystem (VFS) that behaves like a real Linux filesystem. Files, directories, symlinks, permissions, and timestamps all work as expected.
+faux includes a complete in-memory virtual filesystem (VFS) that behaves like a real Linux filesystem. Files, directories, symlinks, permissions, and timestamps all work as expected.
 
 ## Creating a shell with files
 
 Pass an `fs` object to pre-populate the filesystem. Keys are absolute paths, values are file contents. Parent directories are created automatically.
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({
   fs: {
@@ -260,7 +260,7 @@ Snapshots only include files, not empty directories. The output is a plain objec
 Mount a custom `IFileSystem` implementation at any path. Reads and writes under that path are delegated to the mounted filesystem.
 
 ```typescript
-import type { IFileSystem } from "@ambiently-work/faux-shell";
+import type { IFileSystem } from "@ambiently-work/faux";
 
 const apiFs: IFileSystem = {
   readFile(path) {

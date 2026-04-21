@@ -1,9 +1,9 @@
 ---
 title: "Web Terminal"
-description: "Build a browser-based terminal UI with faux-shell, complete with command history and custom commands."
+description: "Build a browser-based terminal UI with faux, complete with command history and custom commands."
 ---
 
-This example shows how to build a terminal emulator in the browser using faux-shell. We cover two approaches: a minimal DOM-based terminal and a polished version using xterm.js.
+This example shows how to build a terminal emulator in the browser using faux. We cover two approaches: a minimal DOM-based terminal and a polished version using xterm.js.
 
 ---
 
@@ -17,7 +17,7 @@ A self-contained terminal using plain HTML, CSS, and JavaScript. Works with a bu
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>faux-shell Terminal</title>
+  <title>faux Terminal</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -77,7 +77,7 @@ A self-contained terminal using plain HTML, CSS, and JavaScript. Works with a bu
   </div>
 
   <script type="module">
-    import { Shell } from "https://esm.sh/faux-shell";
+    import { Shell } from "https://esm.sh/@ambiently-work/faux";
 
     const shell = new Shell({
       env: { USER: "guest", HOSTNAME: "browser" },
@@ -184,7 +184,7 @@ A self-contained terminal using plain HTML, CSS, and JavaScript. Works with a bu
 
     // Initial prompt
     updatePrompt();
-    appendOutput('Welcome to faux-shell. Type "help" for available commands.', "stdout");
+    appendOutput('Welcome to faux. Type "help" for available commands.', "stdout");
 
     // Register a "help" command
     shell.register({
@@ -205,22 +205,22 @@ A self-contained terminal using plain HTML, CSS, and JavaScript. Works with a bu
 
 ## Using a Bundler
 
-If you are using a bundler (Vite, esbuild, webpack), install faux-shell as a dependency:
+If you are using a bundler (Vite, esbuild, webpack), install faux as a dependency:
 
 ```bash
-bun add faux-shell
+bun add @ambiently-work/faux
 ```
 
 Then import it normally:
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 ```
 
 The library is pure ESM with no Node.js APIs, so it works in any browser bundler without polyfills.
 
 :::tip
-faux-shell is around 50KB gzipped with zero dependencies. It loads synchronously (no WASM init), so there is zero startup delay.
+faux is around 50KB gzipped with zero dependencies. It loads synchronously (no WASM init), so there is zero startup delay.
 :::
 
 ---
@@ -234,7 +234,7 @@ For a full terminal experience with proper ANSI handling, cursor movement, and c
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>faux-shell + xterm.js</title>
+  <title>faux + xterm.js</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm/css/xterm.min.css">
   <style>
     body { margin: 0; background: #000; height: 100vh; }
@@ -245,14 +245,14 @@ For a full terminal experience with proper ANSI handling, cursor movement, and c
   <div id="terminal"></div>
 
   <script type="module">
-    import { Shell } from "https://esm.sh/faux-shell";
+    import { Shell } from "https://esm.sh/@ambiently-work/faux";
     import { Terminal } from "https://esm.sh/@xterm/xterm";
     import { FitAddon } from "https://esm.sh/@xterm/addon-fit";
 
     const shell = new Shell({
       env: { USER: "guest", HOSTNAME: "web-shell", TERM: "xterm-256color" },
       fs: {
-        "/home/guest/readme.txt": "Welcome to faux-shell in the browser!\n",
+        "/home/guest/readme.txt": "Welcome to faux in the browser!\n",
       },
       cwd: "/home/guest",
     });
@@ -381,7 +381,7 @@ For a full terminal experience with proper ANSI handling, cursor movement, and c
     });
 
     // Welcome message and first prompt
-    term.writeln("faux-shell v1.0 -- 111 bash commands in the browser");
+    term.writeln("faux v1.0 -- 111 bash commands in the browser");
     term.writeln('Type "help" for a list of commands.\r\n');
     writePrompt();
 
@@ -512,12 +512,12 @@ A minimal React terminal component:
 
 ```tsx
 import { useState, useRef, useEffect } from "react";
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({ cwd: "/home/user" });
 
 export function Terminal() {
-  const [lines, setLines] = useState<string[]>(["Welcome to faux-shell"]);
+  const [lines, setLines] = useState<string[]>(["Welcome to faux"]);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState(-1);

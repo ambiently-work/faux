@@ -6,7 +6,7 @@ description: "API reference for the Environment class — variables, aliases, fu
 The `Environment` class manages shell state: variables, exports, aliases, functions, shell options, and special parameters. Access it through `shell.environment` or use it directly.
 
 ```typescript
-import { Environment } from "@ambiently-work/faux-shell";
+import { Environment } from "@ambiently-work/faux";
 ```
 
 ---
@@ -28,7 +28,7 @@ Creates a new environment with default variables. If `initial` is provided, thos
 | `PWD` | `/` |
 | `SHELL` | `/bin/bash` |
 | `USER` | `root` |
-| `HOSTNAME` | `faux-shell` |
+| `HOSTNAME` | `faux` |
 | `TERM` | `xterm-256color` |
 | `LANG` | `en_US.UTF-8` |
 | `SHLVL` | `1` |

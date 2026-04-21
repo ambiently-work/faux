@@ -3,26 +3,26 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightThemeRapide from "starlight-theme-rapide";
 
-const fauxShellEntry = fileURLToPath(new URL("../../src/index.ts", import.meta.url));
+const fauxEntry = fileURLToPath(new URL("../../src/index.ts", import.meta.url));
 const wasmStub = fileURLToPath(new URL("./src/lib/wasm-stub.ts", import.meta.url));
 
 export default defineConfig({
 	site: "https://ambiently-work.github.io",
-	base: "/faux-shell",
+	base: "/faux",
 	vite: {
 		resolve: {
-			alias: [{ find: "@ambiently-work/faux-shell", replacement: fauxShellEntry }],
+			alias: [{ find: "@ambiently-work/faux", replacement: fauxEntry }],
 		},
 		plugins: [
 			{
 				// The Shell has an optional dynamic `import("./wasm/index.js")`
-				// that chains into `../../pkg/faux_shell_wasm.js`. The WASM binary
+				// that chains into `../../pkg/faux_wasm.js`. The WASM binary
 				// isn't built in the Pages pipeline — resolve the dynamic import
 				// to a stub so the pure-TS fallback kicks in.
-				name: "faux-shell-wasm-stub",
+				name: "faux-wasm-stub",
 				enforce: "pre",
 				resolveId(source) {
-					if (source.endsWith("/pkg/faux_shell_wasm.js")) {
+					if (source.endsWith("/pkg/faux_wasm.js")) {
 						return wasmStub;
 					}
 					return null;
@@ -32,7 +32,7 @@ export default defineConfig({
 	},
 	integrations: [
 		starlight({
-			title: "faux-shell",
+			title: "faux",
 			description:
 				"A virtual bash shell that runs on any JavaScript runtime. 111 commands, in-memory VFS, zero dependencies.",
 			plugins: [starlightThemeRapide()],
@@ -40,11 +40,11 @@ export default defineConfig({
 				{
 					icon: "github",
 					label: "GitHub",
-					href: "https://github.com/ambiently-work/faux-shell",
+					href: "https://github.com/ambiently-work/faux",
 				},
 			],
 			editLink: {
-				baseUrl: "https://github.com/ambiently-work/faux-shell/edit/main/packages/docs/",
+				baseUrl: "https://github.com/ambiently-work/faux/edit/main/packages/docs/",
 			},
 			lastUpdated: true,
 			sidebar: [

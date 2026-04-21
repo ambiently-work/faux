@@ -1,16 +1,16 @@
 ---
 title: "Deployment"
-description: "How to deploy apps using faux-shell on Cloudflare Workers, Deno Deploy, Bun, and in the browser."
+description: "How to deploy apps using faux on Cloudflare Workers, Deno Deploy, Bun, and in the browser."
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-faux-shell is pure JavaScript with zero dependencies and no native bindings. It runs on any JavaScript runtime — edge functions, servers, or browsers.
+faux is pure JavaScript with zero dependencies and no native bindings. It runs on any JavaScript runtime — edge functions, servers, or browsers.
 
 ## Cloudflare Workers
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -39,7 +39,7 @@ For persistent state across requests, store the shell instance outside the fetch
 ### Persistent shell per session
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const sessions = new Map<string, Shell>();
 
@@ -67,7 +67,7 @@ export default {
 ## Deno Deploy
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 Deno.serve(async (req) => {
   const shell = new Shell({
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 ## Bun
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({
   fs: {
@@ -108,12 +108,12 @@ Bun.serve({
 
 ## Browser
 
-faux-shell works in any browser with ESM support. Use your bundler of choice.
+faux works in any browser with ESM support. Use your bundler of choice.
 
 <Tabs>
 <TabItem label="Vite">
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell();
 
@@ -132,7 +132,7 @@ input.addEventListener("keydown", async (e) => {
 <TabItem label="Script tag (ESM)">
 ```html
 <script type="module">
-  import { Shell } from "https://esm.sh/faux-shell";
+  import { Shell } from "https://esm.sh/@ambiently-work/faux";
 
   const shell = new Shell();
   const result = await shell.run('echo "hello from the browser"');
@@ -148,7 +148,7 @@ The shell runs entirely in the main thread. For long-running scripts, consider r
 
 ## Bundle size
 
-faux-shell is designed to be lightweight:
+faux is designed to be lightweight:
 
 | What              | Size           |
 | ----------------- | -------------- |
@@ -163,7 +163,7 @@ faux-shell is designed to be lightweight:
 If your bundler supports tree-shaking (Vite, esbuild, Rollup), unused built-in commands are eliminated from the final bundle. You can also disable all builtins and register only what you need:
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({
   builtins: false, // disable all 111 built-in commands
@@ -180,7 +180,7 @@ const shell = new Shell({
 The default parser is pure JavaScript. For workloads that parse a very high volume of shell input, an optional WASM-based parser is available:
 
 ```typescript
-import { Shell, useWasmParser } from "@ambiently-work/faux-shell";
+import { Shell, useWasmParser } from "@ambiently-work/faux";
 
 const parser = await useWasmParser();
 const shell = new Shell({ parser });
@@ -227,7 +227,7 @@ const restored = new Shell({ fs: savedFiles });
 ### Security
 
 :::caution
-faux-shell executes commands in-memory and has no access to the host filesystem or process. However, if you register custom commands that perform real I/O (network requests, database queries), make sure to validate and sanitize user input before execution.
+faux executes commands in-memory and has no access to the host filesystem or process. However, if you register custom commands that perform real I/O (network requests, database queries), make sure to validate and sanitize user input before execution.
 :::
 
 Limit what users can do by controlling which commands are available:

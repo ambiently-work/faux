@@ -1,5 +1,5 @@
 ---
-title: faux-shell
+title: faux
 description: A virtual bash shell that runs on any JavaScript runtime. 111 commands, in-memory VFS, zero dependencies.
 template: splash
 hero:
@@ -14,14 +14,14 @@ hero:
       icon: right-arrow
       variant: secondary
     - text: View on GitHub
-      link: https://github.com/ambiently-work/faux-shell
+      link: https://github.com/ambiently-work/faux
       icon: external
       variant: minimal
 ---
 
 import { Card, CardGrid, Code } from '@astrojs/starlight/components';
 
-## Why faux-shell?
+## Why faux?
 
 <CardGrid stagger>
   <Card title="Runs everywhere" icon="rocket">
@@ -47,7 +47,7 @@ import { Card, CardGrid, Code } from '@astrojs/starlight/components';
 ## Quick example
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const shell = new Shell({
   fs: { "/data/users.csv": "name,age\nalice,30\nbob,25\n" },
@@ -75,11 +75,11 @@ console.log(env.stdout); // "production\n"
 
 <CardGrid>
   <Card title="Introduction" icon="open-book">
-    Learn what faux-shell is and where it fits.
+    Learn what faux is and where it fits.
     [Read the introduction &rarr;](/guides/introduction/)
   </Card>
   <Card title="Quick Start" icon="rocket">
-    Install faux-shell and run your first commands in under 5 minutes.
+    Install faux and run your first commands in under 5 minutes.
     [Jump to quick start &rarr;](/guides/quick-start/)
   </Card>
 </CardGrid>

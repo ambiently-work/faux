@@ -1,11 +1,11 @@
 ---
 title: "Custom Commands"
-description: "How to extend faux-shell with your own commands using the CommandHandler interface."
+description: "How to extend faux with your own commands using the CommandHandler interface."
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-faux-shell ships with 111 built-in commands, but the real power comes from adding your own. Custom commands have full access to the filesystem, environment, stdin/stdout, and can even run sub-commands.
+faux ships with 111 built-in commands, but the real power comes from adding your own. Custom commands have full access to the filesystem, environment, stdin/stdout, and can even run sub-commands.
 
 ## The CommandHandler interface
 
@@ -50,8 +50,8 @@ Return `0` for success, any non-zero value for failure.
 <Tabs>
 <TabItem label="At construction">
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
-import type { CommandHandler } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
+import type { CommandHandler } from "@ambiently-work/faux";
 
 const myCommand: CommandHandler = {
   name: "hello",

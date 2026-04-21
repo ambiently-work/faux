@@ -1,8 +1,8 @@
 [package]
-name = "faux-shell-wasm"
+name = "faux-wasm"
 version = "0.1.0"
 edition = "2021"
-description = "WASM-accelerated runtime for faux-shell"
+description = "WASM-accelerated runtime for faux"
 
 [lib]
 path = "rust/lib.rs"

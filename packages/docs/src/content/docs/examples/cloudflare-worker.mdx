@@ -3,7 +3,7 @@ title: "Cloudflare Worker"
 description: "Deploy a shell API on Cloudflare Workers with persistent state via KV."
 ---
 
-This example shows how to run faux-shell inside a Cloudflare Worker, expose a REST API for executing commands, and persist filesystem state across requests using Workers KV.
+This example shows how to run faux inside a Cloudflare Worker, expose a REST API for executing commands, and persist filesystem state across requests using Workers KV.
 
 ---
 
@@ -13,7 +13,7 @@ A minimal Worker that accepts shell commands via POST and returns the result.
 
 ```typescript
 // src/index.ts
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -71,7 +71,7 @@ Use Workers KV to save and restore the filesystem between requests. Each session
 
 ```typescript
 // src/index.ts
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 interface Env {
   SHELL_STATE: KVNamespace;
@@ -157,7 +157,7 @@ curl -X POST https://your-worker.example.com \
 In production, you should restrict which commands users can execute. Use the `builtins: false` option and register only safe commands, or validate commands before execution.
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 const ALLOWED_COMMANDS = new Set([
   "echo", "cat", "grep", "sed", "awk", "cut", "sort", "uniq",
@@ -197,7 +197,7 @@ export default {
 
 ```typescript
 // Approach 2: Register only allowed builtins
-import { Shell, type CommandHandler } from "@ambiently-work/faux-shell";
+import { Shell, type CommandHandler } from "@ambiently-work/faux";
 
 function createRestrictedShell(allowlist: string[]): Shell {
   // Create a full shell, extract allowed commands, build restricted shell
@@ -296,7 +296,7 @@ wrangler deploy
 For a more interactive experience, accept an array of commands and return results for each.
 
 ```typescript
-import { Shell } from "@ambiently-work/faux-shell";
+import { Shell } from "@ambiently-work/faux";
 
 interface BatchRequest {
   commands: string[];

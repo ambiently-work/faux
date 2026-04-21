@@ -4,7 +4,7 @@ import type { WasmRuntimeModule } from "../wasm-interfaces.js";
  * Load the WASM runtime for standard environments (browser, Node via bundler).
  */
 export async function loadWasmRuntime(): Promise<WasmRuntimeModule> {
-	const wasm = await import("../../pkg/faux_shell_wasm.js");
+	const wasm = await import("../../pkg/faux_wasm.js");
 	await wasm.default();
 	return {
 		globMatch: wasm.glob_match,
@@ -22,14 +22,14 @@ export async function loadWasmRuntime(): Promise<WasmRuntimeModule> {
  * Use this on Cloudflare Workers where the bundler imports .wasm files directly:
  *
  * ```ts
- * import wasmModule from "@ambiently-work/faux-shell/wasm-binary";
+ * import wasmModule from "@ambiently-work/faux/wasm-binary";
  * const runtime = await loadWasmRuntimeFromModule(wasmModule);
  * ```
  */
 export async function loadWasmRuntimeFromModule(
 	wasmModule: WebAssembly.Module,
 ): Promise<WasmRuntimeModule> {
-	const wasm = await import("../../pkg/faux_shell_wasm.js");
+	const wasm = await import("../../pkg/faux_wasm.js");
 	await wasm.default(wasmModule);
 	return {
 		globMatch: wasm.glob_match,
