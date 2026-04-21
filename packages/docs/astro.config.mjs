@@ -1,10 +1,35 @@
+import { fileURLToPath } from "node:url";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightThemeRapide from "starlight-theme-rapide";
 
+const fauxShellEntry = fileURLToPath(new URL("../../src/index.ts", import.meta.url));
+const wasmStub = fileURLToPath(new URL("./src/lib/wasm-stub.ts", import.meta.url));
+
 export default defineConfig({
 	site: "https://ambiently-work.github.io",
 	base: "/faux-shell",
+	vite: {
+		resolve: {
+			alias: [{ find: "@ambiently-work/faux-shell", replacement: fauxShellEntry }],
+		},
+		plugins: [
+			{
+				// The Shell has an optional dynamic `import("./wasm/index.js")`
+				// that chains into `../../pkg/faux_shell_wasm.js`. The WASM binary
+				// isn't built in the Pages pipeline — resolve the dynamic import
+				// to a stub so the pure-TS fallback kicks in.
+				name: "faux-shell-wasm-stub",
+				enforce: "pre",
+				resolveId(source) {
+					if (source.endsWith("/pkg/faux_shell_wasm.js")) {
+						return wasmStub;
+					}
+					return null;
+				},
+			},
+		],
+	},
 	integrations: [
 		starlight({
 			title: "faux-shell",
@@ -23,6 +48,12 @@ export default defineConfig({
 			},
 			lastUpdated: true,
 			sidebar: [
+				{
+					label: "Try it in your browser",
+					link: "/try/",
+					attrs: { target: "_blank" },
+					badge: { text: "Live", variant: "tip" },
+				},
 				{
 					label: "Getting Started",
 					items: [

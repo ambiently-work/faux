@@ -1,0 +1,679 @@
+---
+const title = "faux-shell — Try it in your browser";
+const description =
+	"A live POSIX-ish shell running entirely in your browser. 100+ bash commands, in-memory VFS, zero dependencies.";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+	</head>
+	<body>
+		<header class="bar">
+			<a class="brand" href={`${base}/`}>
+				<span class="mark">▮</span>
+				<span>faux-shell</span>
+			</a>
+			<nav>
+				<a href={`${base}/guides/introduction/`}>Docs</a>
+				<a
+					href="https://github.com/ambiently-work/faux-shell"
+					target="_blank"
+					rel="noreferrer">GitHub</a
+				>
+				<a
+					href="https://www.npmjs.com/package/@ambiently-work/faux-shell"
+					target="_blank"
+					rel="noreferrer">npm</a
+				>
+			</nav>
+		</header>
+
+		<main>
+			<div id="terminal"></div>
+		</main>
+
+		<footer class="bar">
+			<span class="hint"
+				>Type <kbd>help</kbd> for a quick tour · <kbd>Ctrl</kbd>+<kbd
+					>L</kbd
+				> to clear · <kbd>↑</kbd>/<kbd>↓</kbd> history</span
+			>
+			<span class="meta">Running in-process · No network calls</span>
+		</footer>
+
+		<script>
+			import "@xterm/xterm/css/xterm.css";
+			import { Terminal } from "@xterm/xterm";
+			import { FitAddon } from "@xterm/addon-fit";
+			import { WebLinksAddon } from "@xterm/addon-web-links";
+			import { Shell } from "@ambiently-work/faux-shell";
+
+			const RESET = "\x1b[0m";
+			const BOLD = "\x1b[1m";
+			const DIM = "\x1b[2m";
+			const RED = "\x1b[31m";
+			const GREEN = "\x1b[32m";
+			const YELLOW = "\x1b[33m";
+			const BLUE = "\x1b[34m";
+			const MAGENTA = "\x1b[35m";
+			const CYAN = "\x1b[36m";
+
+			const shell = new Shell({
+				user: "guest",
+				env: {
+					HOSTNAME: "faux-shell",
+					TERM: "xterm-256color",
+					PAGER: "cat",
+				},
+				cwd: "/home/guest",
+				fs: {
+					"/home/guest/README.md":
+						"# Welcome to faux-shell\n\nThis is a virtual bash shell running **entirely in your browser**.\nNo network, no server, no real filesystem — just JavaScript.\n\n## Try these\n\n    ls\n    cat README.md\n    find . -type f\n    echo 'hello, world' | rev\n    seq 1 10 | awk '{ s += $1 } END { print s }'\n\n## What works\n\n- Pipes, redirects, subshells\n- Variables and expansions\n- Control flow (if/for/while/case)\n- Functions\n- 100+ built-in commands\n",
+					"/home/guest/examples/hello.sh":
+						'#!/bin/bash\necho "Hello from faux-shell!"\nfor i in 1 2 3; do\n  echo "  count: $i"\ndone\n',
+					"/home/guest/examples/data.csv":
+						"name,age,city\nalice,30,new york\nbob,25,san francisco\ncharlie,35,chicago\ndiana,28,seattle\neve,32,boston\n",
+					"/home/guest/examples/pipeline.sh":
+						"#!/bin/bash\n# Count words per line, sorted descending\ncat data.csv | tail -n +2 | cut -d, -f1 | sort\n",
+					"/etc/motd":
+						"Welcome to faux-shell — a virtual bash shell running in your browser.\n",
+				},
+			});
+
+			shell.register({
+				name: "help",
+				execute(ctx) {
+					const w = (s: string) => ctx.stdout.writeln(s);
+					w(`${BOLD}faux-shell${RESET} — virtual bash shell`);
+					w("");
+					w(`${CYAN}Navigation${RESET}`);
+					w("  cd, ls, pwd, tree, find");
+					w("");
+					w(`${CYAN}Files${RESET}`);
+					w("  cat, head, tail, touch, mkdir, cp, mv, rm");
+					w("");
+					w(`${CYAN}Text processing${RESET}`);
+					w("  grep, sed, awk, sort, uniq, cut, tr, wc, rev, tac");
+					w("");
+					w(`${CYAN}Shell features${RESET}`);
+					w("  Pipes (|), redirects (> >>), && || ;");
+					w("  Variables ($VAR, ${VAR:-default})");
+					w("  Control flow (if/for/while/case)");
+					w("  Functions (name() { ... })");
+					w("");
+					w(`${CYAN}Misc${RESET}`);
+					w("  echo, printf, date, seq, base64, expr, bc");
+					w("");
+					w(`${DIM}Type 'commands' to list all ${shell.commands.length} built-ins.${RESET}`);
+					return 0;
+				},
+			});
+
+			shell.register({
+				name: "commands",
+				execute(ctx) {
+					const cmds = shell.commands
+						.filter((c) => c !== "help" && c !== "commands")
+						.sort();
+					const colWidth = 12;
+					const cols = 6;
+					for (let i = 0; i < cmds.length; i += cols) {
+						const row = cmds
+							.slice(i, i + cols)
+							.map((c) => c.padEnd(colWidth))
+							.join("");
+						ctx.stdout.writeln(row);
+					}
+					ctx.stdout.writeln(`\n${DIM}${cmds.length} commands available${RESET}`);
+					return 0;
+				},
+			});
+
+			shell.register({
+				name: "about",
+				execute(ctx) {
+					ctx.stdout.writeln(`${BOLD}faux-shell${RESET}`);
+					ctx.stdout.writeln(
+						`${DIM}A POSIX-ish shell that runs entirely in-process.${RESET}`,
+					);
+					ctx.stdout.writeln("");
+					ctx.stdout.writeln(`  ${CYAN}npm${RESET}     @ambiently-work/faux-shell`);
+					ctx.stdout.writeln(`  ${CYAN}docs${RESET}    ${location.origin}${base}/`);
+					ctx.stdout.writeln(
+						`  ${CYAN}source${RESET}  https://github.com/ambiently-work/faux-shell`,
+					);
+					return 0;
+				},
+			});
+
+			const term = new Terminal({
+				theme: {
+					background: "#0b0b12",
+					foreground: "#cdd6f4",
+					cursor: "#f5e0dc",
+					cursorAccent: "#0b0b12",
+					selectionBackground: "#585b7080",
+					black: "#45475a",
+					red: "#f38ba8",
+					green: "#a6e3a1",
+					yellow: "#f9e2af",
+					blue: "#89b4fa",
+					magenta: "#cba6f7",
+					cyan: "#94e2d5",
+					white: "#bac2de",
+					brightBlack: "#585b70",
+					brightRed: "#f38ba8",
+					brightGreen: "#a6e3a1",
+					brightYellow: "#f9e2af",
+					brightBlue: "#89b4fa",
+					brightMagenta: "#cba6f7",
+					brightCyan: "#94e2d5",
+					brightWhite: "#a6adc8",
+				},
+				fontFamily:
+					'"JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, monospace',
+				fontSize: 14,
+				lineHeight: 1.2,
+				cursorBlink: true,
+				scrollback: 5000,
+				allowProposedApi: true,
+			});
+
+			const fit = new FitAddon();
+			const links = new WebLinksAddon();
+			term.loadAddon(fit);
+			term.loadAddon(links);
+
+			const host = document.getElementById("terminal");
+			if (!host) throw new Error("terminal host missing");
+			term.open(host);
+
+			function safeFit() {
+				try {
+					fit.fit();
+				} catch {
+					// ignore resize errors during hidden tabs or zero-size hosts
+				}
+			}
+
+			// The flex container needs layout before xterm can measure itself.
+			requestAnimationFrame(() => requestAnimationFrame(safeFit));
+
+			const ro = new ResizeObserver(() => safeFit());
+			ro.observe(host);
+			window.addEventListener("resize", safeFit);
+
+			let currentLine = "";
+			let cursorPos = 0;
+			let multilineBuffer = "";
+			let inMultiline = false;
+			const history: string[] = [];
+			let historyIndex = -1;
+			let busy = false;
+
+			function visiblePrompt(): string {
+				const user = shell.environment.get("USER") ?? "guest";
+				const host = shell.environment.get("HOSTNAME") ?? "faux-shell";
+				const cwd = shell.environment.cwd;
+				const home = shell.environment.get("HOME") ?? "/home/guest";
+				let display = cwd;
+				if (cwd === home) display = "~";
+				else if (cwd.startsWith(`${home}/`)) display = `~${cwd.slice(home.length)}`;
+				const exit = shell.environment.lastExitCode;
+				const sigil = exit === 0 ? GREEN : RED;
+				return `${BOLD}${GREEN}${user}@${host}${RESET}:${BOLD}${BLUE}${display}${RESET}${sigil}$${RESET} `;
+			}
+
+			function continuationPrompt(): string {
+				return `${YELLOW}>${RESET} `;
+			}
+
+			function stripAnsi(s: string): string {
+				return s.replace(/\x1b\[[0-9;]*m/g, "");
+			}
+
+			function redraw(prompt: string) {
+				term.write("\r\x1b[K");
+				term.write(prompt + currentLine);
+				const tail = currentLine.length - cursorPos;
+				if (tail > 0) term.write(`\x1b[${tail}D`);
+			}
+
+			function needsContinuation(input: string): boolean {
+				if (input.endsWith("\\")) return true;
+				let singles = 0;
+				let doubles = 0;
+				let escaped = false;
+				for (const ch of input) {
+					if (escaped) {
+						escaped = false;
+						continue;
+					}
+					if (ch === "\\") {
+						escaped = true;
+						continue;
+					}
+					if (ch === "'" && doubles % 2 === 0) singles++;
+					if (ch === '"' && singles % 2 === 0) doubles++;
+				}
+				if (singles % 2 !== 0) return true;
+				if (doubles % 2 !== 0) return true;
+				const trimmed = input.trim();
+				if (
+					trimmed.endsWith("then") ||
+					trimmed.endsWith("do") ||
+					trimmed.endsWith("else") ||
+					trimmed.endsWith("{") ||
+					trimmed.endsWith("|") ||
+					trimmed.endsWith("&&") ||
+					trimmed.endsWith("||")
+				) {
+					return true;
+				}
+				return false;
+			}
+
+			function writeBanner() {
+				const lines = [
+					"",
+					`  ${BOLD}${CYAN}╭─────────────────────────────────────────────╮${RESET}`,
+					`  ${BOLD}${CYAN}│${RESET}  ${BOLD}faux-shell${RESET} ${DIM}·${RESET} virtual bash in your browser  ${BOLD}${CYAN}│${RESET}`,
+					`  ${BOLD}${CYAN}│${RESET}  ${DIM}${shell.commands.length} built-in commands · in-memory VFS${RESET}     ${BOLD}${CYAN}│${RESET}`,
+					`  ${BOLD}${CYAN}╰─────────────────────────────────────────────╯${RESET}`,
+					"",
+					`  ${DIM}Try:${RESET}  ${MAGENTA}ls${RESET}   ${MAGENTA}cat README.md${RESET}   ${MAGENTA}help${RESET}   ${MAGENTA}about${RESET}`,
+					"",
+				];
+				for (const l of lines) term.writeln(l);
+			}
+
+			function writePrompt() {
+				term.write(inMultiline ? continuationPrompt() : visiblePrompt());
+			}
+
+			async function runLine(raw: string) {
+				const combined = inMultiline ? `${multilineBuffer}\n${raw}` : raw;
+
+				if (needsContinuation(combined)) {
+					inMultiline = true;
+					multilineBuffer = combined;
+					currentLine = "";
+					cursorPos = 0;
+					term.write("\r\n");
+					writePrompt();
+					return;
+				}
+
+				inMultiline = false;
+				multilineBuffer = "";
+
+				const trimmed = combined.trim();
+				if (trimmed === "") {
+					term.write("\r\n");
+					writePrompt();
+					return;
+				}
+
+				if (trimmed === "clear" || trimmed === "cls") {
+					term.reset();
+					writePrompt();
+					return;
+				}
+
+				if (trimmed === "exit" || trimmed.startsWith("exit ")) {
+					term.write("\r\n");
+					term.writeln(`${DIM}can't exit a browser tab — just close it :)${RESET}`);
+					writePrompt();
+					return;
+				}
+
+				history.push(combined);
+				if (history.length > 500) history.shift();
+				historyIndex = history.length;
+
+				busy = true;
+				term.write("\r\n");
+				try {
+					const start = performance.now();
+					const result = await shell.run(combined);
+					const elapsed = performance.now() - start;
+					if (result.stdout) term.write(result.stdout.replace(/\n/g, "\r\n"));
+					if (result.stderr)
+						term.write(`${RED}${result.stderr.replace(/\n/g, "\r\n")}${RESET}`);
+					if (elapsed > 50) {
+						term.write(`${DIM}(${elapsed.toFixed(0)}ms)${RESET}\r\n`);
+					}
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					term.write(`${RED}internal error: ${msg}${RESET}\r\n`);
+				} finally {
+					busy = false;
+				}
+
+				writePrompt();
+			}
+
+			function replaceCurrent(next: string) {
+				currentLine = next;
+				cursorPos = next.length;
+				redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+			}
+
+			function onChar(data: string) {
+				for (const ch of data) {
+					if (ch >= " " && ch !== "\x7f") {
+						currentLine =
+							currentLine.slice(0, cursorPos) + ch + currentLine.slice(cursorPos);
+						cursorPos++;
+					}
+				}
+				redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+			}
+
+			term.onData(async (data: string) => {
+				if (busy) return;
+
+				// Paste: many chars including possibly control chars
+				if (data.length > 1 && !data.startsWith("\x1b")) {
+					const hasNewline = data.includes("\r") || data.includes("\n");
+					if (hasNewline) {
+						// Insert up to first newline, then submit
+						const normalized = data.replace(/\r\n?/g, "\n");
+						const firstNl = normalized.indexOf("\n");
+						const before = normalized.slice(0, firstNl);
+						const rest = normalized.slice(firstNl + 1);
+						onChar(before);
+						const submitted = currentLine;
+						currentLine = "";
+						cursorPos = 0;
+						await runLine(submitted);
+						if (rest) {
+							// Queue remaining lines one-by-one
+							for (const line of rest.split("\n")) {
+								if (busy) return;
+								onChar(line);
+								const next = currentLine;
+								currentLine = "";
+								cursorPos = 0;
+								await runLine(next);
+							}
+						}
+						return;
+					}
+					onChar(data);
+					return;
+				}
+
+				// Escape sequences
+				if (data === "\x1b[A") {
+					// Up
+					if (history.length === 0) return;
+					if (historyIndex > 0) historyIndex--;
+					replaceCurrent(history[historyIndex] ?? "");
+					return;
+				}
+				if (data === "\x1b[B") {
+					// Down
+					if (historyIndex < history.length - 1) {
+						historyIndex++;
+						replaceCurrent(history[historyIndex] ?? "");
+					} else {
+						historyIndex = history.length;
+						replaceCurrent("");
+					}
+					return;
+				}
+				if (data === "\x1b[D") {
+					// Left
+					if (cursorPos > 0) {
+						cursorPos--;
+						term.write("\x1b[D");
+					}
+					return;
+				}
+				if (data === "\x1b[C") {
+					// Right
+					if (cursorPos < currentLine.length) {
+						cursorPos++;
+						term.write("\x1b[C");
+					}
+					return;
+				}
+				if (data === "\x1b[H" || data === "\x01") {
+					// Home / Ctrl+A
+					if (cursorPos > 0) {
+						term.write(`\x1b[${cursorPos}D`);
+						cursorPos = 0;
+					}
+					return;
+				}
+				if (data === "\x1b[F" || data === "\x05") {
+					// End / Ctrl+E
+					const delta = currentLine.length - cursorPos;
+					if (delta > 0) {
+						term.write(`\x1b[${delta}C`);
+						cursorPos = currentLine.length;
+					}
+					return;
+				}
+				if (data === "\x03") {
+					// Ctrl+C
+					term.write("^C\r\n");
+					currentLine = "";
+					cursorPos = 0;
+					inMultiline = false;
+					multilineBuffer = "";
+					historyIndex = history.length;
+					writePrompt();
+					return;
+				}
+				if (data === "\x0c") {
+					// Ctrl+L
+					term.reset();
+					writePrompt();
+					term.write(currentLine);
+					const tail = currentLine.length - cursorPos;
+					if (tail > 0) term.write(`\x1b[${tail}D`);
+					return;
+				}
+				if (data === "\x04") {
+					// Ctrl+D — ignore on empty, otherwise act as delete-right
+					if (currentLine.length === 0) return;
+					if (cursorPos < currentLine.length) {
+						currentLine =
+							currentLine.slice(0, cursorPos) + currentLine.slice(cursorPos + 1);
+						redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+					}
+					return;
+				}
+				if (data === "\x0b") {
+					// Ctrl+K — kill to end
+					currentLine = currentLine.slice(0, cursorPos);
+					redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+					return;
+				}
+				if (data === "\x15") {
+					// Ctrl+U — kill to start
+					currentLine = currentLine.slice(cursorPos);
+					cursorPos = 0;
+					redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+					return;
+				}
+				if (data === "\x7f" || data === "\b") {
+					// Backspace
+					if (cursorPos > 0) {
+						currentLine =
+							currentLine.slice(0, cursorPos - 1) + currentLine.slice(cursorPos);
+						cursorPos--;
+						redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+					}
+					return;
+				}
+				if (data === "\r" || data === "\n") {
+					const submitted = currentLine;
+					currentLine = "";
+					cursorPos = 0;
+					await runLine(submitted);
+					return;
+				}
+				if (data === "\t") {
+					// Naive tab completion: commands at word start only
+					const before = currentLine.slice(0, cursorPos);
+					const wordStart = Math.max(
+						before.lastIndexOf(" "),
+						before.lastIndexOf("|"),
+						before.lastIndexOf(";"),
+					);
+					const prefix = before.slice(wordStart + 1);
+					if (prefix.length === 0) return;
+					const isFirstWord = wordStart < 0 || /^\s*$/.test(before.slice(0, wordStart + 1));
+					const pool = isFirstWord ? shell.commands : shell.commands;
+					const matches = pool.filter((c) => c.startsWith(prefix)).sort();
+					if (matches.length === 1) {
+						const completion = matches[0].slice(prefix.length) + " ";
+						currentLine =
+							currentLine.slice(0, cursorPos) + completion + currentLine.slice(cursorPos);
+						cursorPos += completion.length;
+						redraw(inMultiline ? continuationPrompt() : visiblePrompt());
+					} else if (matches.length > 1) {
+						term.write("\r\n");
+						term.writeln(matches.join("  "));
+						writePrompt();
+						term.write(currentLine);
+						const tail = currentLine.length - cursorPos;
+						if (tail > 0) term.write(`\x1b[${tail}D`);
+					}
+					return;
+				}
+
+				// Any other single printable char
+				onChar(data);
+			});
+
+			// Focus the terminal when user clicks anywhere in the main area
+			document.querySelector("main")?.addEventListener("click", () => term.focus());
+
+			writeBanner();
+			writePrompt();
+			term.focus();
+
+			// Expose for debugging in devtools
+			// @ts-expect-error dev-only
+			window.shell = shell;
+			// @ts-expect-error dev-only
+			window.term = term;
+		</script>
+
+		<style>
+			:root {
+				color-scheme: dark;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				background: #0b0b12;
+				color: #cdd6f4;
+				font-family:
+					system-ui,
+					-apple-system,
+					Segoe UI,
+					Roboto,
+					sans-serif;
+			}
+			body {
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
+			}
+			.bar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 1rem;
+				padding: 0.5rem 1rem;
+				background: #11111a;
+				border-bottom: 1px solid #1f1f2e;
+				font-size: 13px;
+			}
+			footer.bar {
+				border-bottom: none;
+				border-top: 1px solid #1f1f2e;
+				color: #9399b2;
+			}
+			.brand {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.5rem;
+				color: #cdd6f4;
+				text-decoration: none;
+				font-weight: 600;
+			}
+			.brand:hover {
+				color: #a6e3a1;
+			}
+			.mark {
+				color: #a6e3a1;
+				animation: blink 1.1s steps(2, end) infinite;
+			}
+			@keyframes blink {
+				50% {
+					opacity: 0;
+				}
+			}
+			nav {
+				display: flex;
+				gap: 1rem;
+			}
+			nav a {
+				color: #bac2de;
+				text-decoration: none;
+			}
+			nav a:hover {
+				color: #f5e0dc;
+			}
+			.hint kbd {
+				background: #1e1e2e;
+				border: 1px solid #313244;
+				border-radius: 4px;
+				padding: 0.05rem 0.35rem;
+				font-family: inherit;
+				font-size: 12px;
+				color: #cdd6f4;
+			}
+			.meta {
+				color: #6c7086;
+				font-size: 12px;
+			}
+			main {
+				flex: 1;
+				min-height: 0;
+				padding: 0.75rem;
+				background: #0b0b12;
+			}
+			#terminal {
+				height: 100%;
+				min-height: 60vh;
+			}
+			@media (max-width: 640px) {
+				footer .meta {
+					display: none;
+				}
+			}
+		</style>
+	</body>
+</html>
