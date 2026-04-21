@@ -125,7 +125,7 @@ export const hash = cmd("hash")
 	.flag("-t, --find", "Print full path for each name")
 	.allowUnknownFlags()
 	.argument("[names...]", "Command names")
-	.action((ctx, { args, flags, raw }) => {
+	.action((ctx, { raw }) => {
 		// hash has complex enough arg handling that we use raw
 		if (raw.length === 0) {
 			if (hashTable.size === 0) {

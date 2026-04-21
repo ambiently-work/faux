@@ -67,8 +67,9 @@ function grepContent(
 
 			if (flags.onlyMatching && !flags.invert) {
 				regex.lastIndex = 0;
-				let m: RegExpExecArray | null;
-				while ((m = regex.exec(line)) !== null) {
+				for (;;) {
+					const m: RegExpExecArray | null = regex.exec(line);
+					if (m === null) break;
 					const parts: string[] = [];
 					if (showFile) parts.push(`${filename}:`);
 					if (flags.lineNumbers) parts.push(`${String(i + 1)}:`);

@@ -41,7 +41,7 @@ export const tail = command("tail")
 			if (byteCount !== null) {
 				ctx.stdout.write(content.slice(-byteCount));
 			} else {
-				const n = lineCount!;
+				const n = lineCount ?? 10;
 				// Split preserving the trailing newline behavior
 				const hasTrailing = content.endsWith("\n");
 				let lines = content.split("\n");

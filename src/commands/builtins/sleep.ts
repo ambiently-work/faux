@@ -40,7 +40,7 @@ export const sleep = command("sleep")
 
 		const ms = Math.floor(totalSeconds * 1000);
 		await new Promise<void>((resolve) => {
-			(globalThis as any).setTimeout(resolve, ms);
+			setTimeout(resolve, ms);
 		});
 
 		return 0;

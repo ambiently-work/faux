@@ -42,7 +42,7 @@ export const head = command("head")
 				ctx.stdout.write(content.slice(0, byteCount));
 			} else {
 				const lines = content.split("\n");
-				const n = lineCount!;
+				const n = lineCount ?? 10;
 				const output = lines.slice(0, n);
 				// Rejoin and preserve the fact that split produces an extra element
 				if (output.length > 0) {

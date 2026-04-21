@@ -62,7 +62,7 @@ export const read = command("read")
 			const result = await Promise.race([
 				Promise.resolve(input),
 				new Promise<null>((resolve) => {
-					(globalThis as any).setTimeout(() => resolve(null), timeoutMs);
+					setTimeout(() => resolve(null), timeoutMs);
 				}),
 			]);
 			if (result === null) {

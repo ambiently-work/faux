@@ -42,7 +42,7 @@ export const cut = command("cut")
 			return 1;
 		}
 
-		const ranges = parseRanges(fieldSpec ?? charSpec!);
+		const ranges = parseRanges(fieldSpec ?? charSpec ?? "");
 
 		const processLine = (line: string): string => {
 			if (charSpec) {

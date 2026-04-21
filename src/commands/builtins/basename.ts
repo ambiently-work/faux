@@ -18,7 +18,7 @@ export const basename = command("basename")
 
 		// If exactly two args and no -s flag, second is suffix
 		if (paths.length === 2 && suffix === null) {
-			suffix = paths.pop()!;
+			suffix = paths.pop() ?? "";
 		}
 
 		const zeroTerminated = flags.z as boolean;

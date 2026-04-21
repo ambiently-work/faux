@@ -65,8 +65,9 @@ export const xargs = command("xargs")
 		const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
 
 		if (replaceStr) {
+			const needle = replaceStr;
 			for (const item of items) {
-				const cmd = commandArgs.map((a) => shellQuote(a.split(replaceStr!).join(item))).join(" ");
+				const cmd = commandArgs.map((a) => shellQuote(a.split(needle).join(item))).join(" ");
 				const result = await ctx.subExec(cmd);
 				ctx.stdout.write(result.stdout);
 				if (result.stderr) {
