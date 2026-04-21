@@ -7,4 +7,21 @@ jobs:
   hello:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "hello from runner"
+      - run: echo "step 1 — no actions"
+      - uses: actions/checkout@v4
+      - run: echo "step 3 — after checkout"
+  with-bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun --version
+  with-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/x
+          key: test-key
+      - run: echo "cache action loaded"
