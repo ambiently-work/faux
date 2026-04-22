@@ -1,4 +1,4 @@
-import type { IFileSystem } from "@ambiently-work/vfs";
+import type { IFileSystem } from "@ambiently-work/mirage";
 import type { Environment } from "../env/environment.js";
 import type { Redirect } from "../parser/index.js";
 import { expandWord, type SubExecFn } from "./expansion/index.js";

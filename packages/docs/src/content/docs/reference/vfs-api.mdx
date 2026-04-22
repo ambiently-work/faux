@@ -7,7 +7,7 @@ The virtual filesystem (VFS) provides a complete in-memory filesystem with POSIX
 
 ```typescript
 import { VirtualFileSystem } from "@ambiently-work/faux";
-import type { IFileSystem, VfsStats } from "@ambiently-work/faux";
+import type { IFileSystem, MirageStats } from "@ambiently-work/faux";
 ```
 
 ---
@@ -20,8 +20,8 @@ The `IFileSystem` interface defines all filesystem operations. Both `VirtualFile
 interface IFileSystem {
   readFile(path: string): string;
   readDir(path: string): string[];
-  stat(path: string): VfsStats;
-  lstat(path: string): VfsStats;
+  stat(path: string): MirageStats;
+  lstat(path: string): MirageStats;
   exists(path: string): boolean;
   writeFile(path: string, content: string): void;
   appendFile(path: string, content: string): void;
@@ -107,7 +107,7 @@ const entries = vfs.readDir("/data");
 ### `stat(path)`
 
 ```typescript
-stat(path: string): VfsStats
+stat(path: string): MirageStats
 ```
 
 Get file status, following symlinks. Throws `ENOENT` if the path does not exist.
@@ -122,7 +122,7 @@ console.log(st.isDirectory()); // false
 ### `lstat(path)`
 
 ```typescript
-lstat(path: string): VfsStats
+lstat(path: string): MirageStats
 ```
 
 Get file status without following symlinks. If the path is a symlink, returns info about the symlink itself.
@@ -328,10 +328,10 @@ const files = vfs.glob("*.txt", { cwd: "/data" });
 
 ---
 
-## VfsStats
+## MirageStats
 
 ```typescript
-interface VfsStats {
+interface MirageStats {
   size: number;
   mode: number;
   uid: number;

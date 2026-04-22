@@ -1,4 +1,4 @@
-import type { IFileSystem } from "@ambiently-work/vfs";
+import type { IFileSystem } from "@ambiently-work/mirage";
 import type { Environment } from "../../env/environment.js";
 import type { AstNode, Word, WordPart } from "../../parser/index.js";
 import { evaluateArithmetic } from "./arithmetic.js";

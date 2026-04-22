@@ -1,4 +1,4 @@
-import type { IFileSystem } from "@ambiently-work/vfs";
+import type { IFileSystem } from "@ambiently-work/mirage";
 import type { WasmGlobToRegexModule } from "../../wasm-interfaces.js";
 
 let wasmGlobToRegex: ((pattern: string) => string) | null = null;
