@@ -3,12 +3,12 @@ export {
 	type HttpFileSystemOptions,
 	type IFileSystem,
 	LayeredFileSystem,
+	type MirageStats,
 	ObjectFileSystem,
 	ReadOnlyFileSystem,
 	useWasmGlob,
-	type VfsStats,
 	VirtualFileSystem,
-} from "@ambiently-work/vfs";
+} from "@ambiently-work/mirage";
 export {
 	type ActionFn,
 	Command,

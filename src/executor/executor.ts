@@ -1,4 +1,4 @@
-import type { IFileSystem } from "@ambiently-work/vfs";
+import type { IFileSystem } from "@ambiently-work/mirage";
 import type { CommandRegistry } from "../commands/registry.js";
 import type { Environment } from "../env/environment.js";
 import {

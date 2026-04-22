@@ -1,4 +1,4 @@
-import { type IFileSystem, VirtualFileSystem } from "@ambiently-work/vfs";
+import { type IFileSystem, VirtualFileSystem } from "@ambiently-work/mirage";
 import { allBuiltins } from "./commands/builtins/index.js";
 import { CommandRegistry } from "./commands/registry.js";
 import type { CommandHandler } from "./commands/types.js";

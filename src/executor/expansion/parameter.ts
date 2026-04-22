@@ -1,4 +1,4 @@
-import type { IFileSystem } from "@ambiently-work/vfs";
+import type { IFileSystem } from "@ambiently-work/mirage";
 import type { Environment } from "../../env/environment.js";
 import type { Word } from "../../parser/index.js";
 import { globToRegex } from "./glob.js";

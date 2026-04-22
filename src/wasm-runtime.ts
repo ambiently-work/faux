@@ -1,4 +1,4 @@
-import { useWasmGlob } from "@ambiently-work/vfs";
+import { useWasmGlob } from "@ambiently-work/mirage";
 import {
 	useWasmArithmetic,
 	useWasmBraces,
