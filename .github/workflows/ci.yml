@@ -17,9 +17,15 @@ jobs:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Check out sibling @ambiently-work/vfs (mirage)
+        # Pinned to feat/git-integration: that branch still exports the pre-rename
+        # @ambiently-work/vfs package (with VfsStats) that faux currently depends on.
+        # main has been renamed to @ambiently-work/mirage and drops those exports.
+        run: git clone --depth 1 --branch feat/git-integration https://github.com/ambiently-work/mirage.git ../../ambiently-work/mirage
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
         with:
           bun-version: latest
 
@@ -27,7 +33,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Cache cargo registry & build
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: |
             ~/.cargo/registry
@@ -38,7 +44,7 @@ jobs:
 
       - name: Cache wasm-pack binary
         id: wasm-pack-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: ~/.cargo/bin/wasm-pack
           key: wasm-pack-${{ runner.os }}-v0.13.1
