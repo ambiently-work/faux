@@ -21,6 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
+      - name: Check out sibling @ambiently-work/vfs (mirage)
+        run: git clone --depth 1 https://github.com/ambiently-work/mirage.git ../../ambiently-work/mirage
+
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
         with:
           bun-version: latest
