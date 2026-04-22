@@ -1,0 +1,11 @@
+name: Diagnostic
+
+on:
+  pull_request:
+
+jobs:
+  just-checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "checkout ok"

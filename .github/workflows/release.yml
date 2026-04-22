@@ -44,12 +44,25 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
         with:
-          targets: wasm32-unknown-unknown
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
       - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install dependencies
         run: bun install --frozen-lockfile
