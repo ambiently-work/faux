@@ -1,0 +1,38 @@
+# Configuration for lycheeverse/lychee link checker.
+# https://github.com/lycheeverse/lychee/blob/master/lychee.example.toml
+
+# Network behavior
+max_concurrency = 16
+max_redirects = 5
+timeout = 20
+retry_wait_time = 5
+
+# Skip checking these — they're either internal or rate-limit aggressively.
+exclude = [
+    "^https?://localhost",
+    "^https?://127\\.0\\.0\\.1",
+    "^https?://0\\.0\\.0\\.0",
+    "^https?://(?:[A-Za-z0-9-]+\\.)?ambiently-work\\.dev",
+    "^https?://github\\.com/.*/(?:issues|pulls|pull|commits|commit|releases/tag)/",
+    "^https?://twitter\\.com",
+    "^https?://x\\.com",
+]
+
+# Don't fail on transient network issues or rate limits.
+accept = ["200..=299", "301", "302", "303", "307", "308", "403", "429"]
+
+# Skip excluded paths entirely.
+exclude_path = [
+    "node_modules",
+    "dist",
+    "pkg",
+    "target",
+    "packages/docs/.astro",
+]
+
+# Treat unknown URI schemes (mailto:, tel:) as OK.
+include_mail = false
+
+# Cache responses to avoid hammering external services.
+cache = true
+max_cache_age = "7d"

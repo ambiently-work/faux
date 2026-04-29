@@ -1,0 +1,83 @@
+name: Bug report
+description: Something is broken or behaves incorrectly.
+title: "fix: <short description>"
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. The more we know, the faster we can fix it.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What were you trying to do, and what went wrong?
+      placeholder: When I run `…`, faux throws `…` instead of `…`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Code, shell snippet, or test case that triggers the bug.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include stack traces or unexpected output.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: faux-version
+    attributes:
+      label: faux version
+      placeholder: "0.0.1 (commit sha or tag)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Bun
+        - Node
+        - Browser
+        - Cloudflare Workers
+        - Deno
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment details
+      description: OS, runtime version, anything else relevant.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: I'm willing to submit a PR for this if guided.
+          required: false

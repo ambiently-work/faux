@@ -1,0 +1,25 @@
+# gitleaks configuration — extends the default ruleset.
+# Docs: https://github.com/gitleaks/gitleaks
+
+title = "faux gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for known-safe matches in this repo."
+paths = [
+    '''bun\.lock''',
+    '''Cargo\.lock''',
+    '''pkg/.*''',
+    '''dist/.*''',
+    '''target/.*''',
+    '''tests/.*\.test\.ts''',
+    '''packages/docs/.*''',
+]
+# Allow placeholder examples used in docs / tests (do NOT include real secrets).
+regexes = [
+    '''AKIAIOSFODNN7EXAMPLE''',
+    '''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
+    '''xoxb-EXAMPLE''',
+]
