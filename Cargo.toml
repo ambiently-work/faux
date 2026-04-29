@@ -2,7 +2,11 @@
 name = "faux-wasm"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.78"
 description = "WASM-accelerated runtime for faux"
+repository = "https://github.com/ambiently-work/faux"
+license = "MIT"
+readme = "README.md"
 
 [lib]
 path = "rust/lib.rs"
@@ -19,3 +23,14 @@ js-sys = "0.3"
 [profile.release]
 opt-level = "s"
 lto = true
+
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+# Targeted code-smell lints; clippy::all stays at default severity.
+todo = "warn"
+unimplemented = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
