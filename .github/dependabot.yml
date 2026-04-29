@@ -16,17 +16,9 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      typescript-tooling:
+      npm:
         patterns:
-          - "typescript"
-          - "@biomejs/*"
-          - "@arethetypeswrong/*"
-          - "publint"
-          - "knip"
-      runtime:
-        patterns:
-          - "zod"
-          - "quickjs-emscripten"
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/packages/docs"
@@ -42,6 +34,10 @@ updates:
     commit-message:
       prefix: "chore(deps-docs)"
       include: "scope"
+    groups:
+      docs:
+        patterns:
+          - "*"
 
   - package-ecosystem: "cargo"
     directory: "/"
@@ -57,6 +53,10 @@ updates:
     commit-message:
       prefix: "chore(cargo)"
       include: "scope"
+    groups:
+      cargo:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -73,7 +73,6 @@ updates:
       prefix: "ci(actions)"
       include: "scope"
     groups:
-      actions-minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      actions:
+        patterns:
+          - "*"
