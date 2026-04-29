@@ -1368,9 +1368,9 @@ export class Parser {
 			}
 			segments.push(seg);
 
-			const branceParts: Word[] = segments.map((s) => this.parseWordString(s));
+			const braceParts: Word[] = segments.map((s) => this.parseWordString(s));
 			return {
-				part: { type: "braceExpansion", parts: branceParts },
+				part: { type: "braceExpansion", parts: braceParts },
 				end: i,
 			};
 		}

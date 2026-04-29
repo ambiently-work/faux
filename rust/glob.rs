@@ -72,7 +72,11 @@ fn do_match(pattern: &[u8], mut pi: usize, s: &[u8], mut si: usize) -> bool {
                 }
                 let class_content = &pattern[pi + 1..close];
                 let negate = !class_content.is_empty() && class_content[0] == b'!';
-                let chars = if negate { &class_content[1..] } else { class_content };
+                let chars = if negate {
+                    &class_content[1..]
+                } else {
+                    class_content
+                };
                 let matched = match_char_class(chars, s[si]);
                 if negate == matched {
                     return false;
@@ -102,12 +106,7 @@ fn do_match(pattern: &[u8], mut pi: usize, s: &[u8], mut si: usize) -> bool {
 }
 
 fn find_class_close(pattern: &[u8], start: usize) -> Option<usize> {
-    for i in (start + 2)..pattern.len() {
-        if pattern[i] == b']' {
-            return Some(i);
-        }
-    }
-    None
+    ((start + 2)..pattern.len()).find(|&i| pattern[i] == b']')
 }
 
 fn match_char_class(class: &[u8], ch: u8) -> bool {

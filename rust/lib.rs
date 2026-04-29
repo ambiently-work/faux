@@ -2,8 +2,8 @@ use wasm_bindgen::prelude::*;
 
 mod arithmetic;
 mod braces;
-mod expansion;
 mod executor;
+mod expansion;
 mod glob;
 mod glob_regex;
 pub mod parser;

@@ -38,6 +38,7 @@ fn find_matching_brace(s: &str, start: usize) -> Option<usize> {
     let bytes = s.as_bytes();
     let mut depth = 0;
     let mut escaped = false;
+    #[allow(clippy::needless_range_loop)] // index used to compare adjacent bytes
     for i in start..bytes.len() {
         if escaped {
             escaped = false;

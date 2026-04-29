@@ -87,7 +87,11 @@ fn parse_ternary(tokens: &[Token], cursor: &mut usize) -> i64 {
             consume(tokens, cursor);
         }
         let false_val = parse_expr(tokens, cursor);
-        if cond != 0 { true_val } else { false_val }
+        if cond != 0 {
+            true_val
+        } else {
+            false_val
+        }
     } else {
         cond
     }
@@ -164,10 +168,26 @@ fn parse_relational(tokens: &[Token], cursor: &mut usize) -> i64 {
     let mut left = parse_shift(tokens, cursor);
     loop {
         match peek_op(tokens, cursor) {
-            Some("<") => { consume(tokens, cursor); let r = parse_shift(tokens, cursor); left = if left < r { 1 } else { 0 }; }
-            Some(">") => { consume(tokens, cursor); let r = parse_shift(tokens, cursor); left = if left > r { 1 } else { 0 }; }
-            Some("<=") => { consume(tokens, cursor); let r = parse_shift(tokens, cursor); left = if left <= r { 1 } else { 0 }; }
-            Some(">=") => { consume(tokens, cursor); let r = parse_shift(tokens, cursor); left = if left >= r { 1 } else { 0 }; }
+            Some("<") => {
+                consume(tokens, cursor);
+                let r = parse_shift(tokens, cursor);
+                left = if left < r { 1 } else { 0 };
+            }
+            Some(">") => {
+                consume(tokens, cursor);
+                let r = parse_shift(tokens, cursor);
+                left = if left > r { 1 } else { 0 };
+            }
+            Some("<=") => {
+                consume(tokens, cursor);
+                let r = parse_shift(tokens, cursor);
+                left = if left <= r { 1 } else { 0 };
+            }
+            Some(">=") => {
+                consume(tokens, cursor);
+                let r = parse_shift(tokens, cursor);
+                left = if left >= r { 1 } else { 0 };
+            }
             _ => break,
         }
     }
@@ -178,8 +198,14 @@ fn parse_shift(tokens: &[Token], cursor: &mut usize) -> i64 {
     let mut left = parse_add_sub(tokens, cursor);
     loop {
         match peek_op(tokens, cursor) {
-            Some("<<") => { consume(tokens, cursor); left <<= parse_add_sub(tokens, cursor); }
-            Some(">>") => { consume(tokens, cursor); left >>= parse_add_sub(tokens, cursor); }
+            Some("<<") => {
+                consume(tokens, cursor);
+                left <<= parse_add_sub(tokens, cursor);
+            }
+            Some(">>") => {
+                consume(tokens, cursor);
+                left >>= parse_add_sub(tokens, cursor);
+            }
             _ => break,
         }
     }
@@ -190,8 +216,14 @@ fn parse_add_sub(tokens: &[Token], cursor: &mut usize) -> i64 {
     let mut left = parse_mul_div(tokens, cursor);
     loop {
         match peek_op(tokens, cursor) {
-            Some("+") => { consume(tokens, cursor); left += parse_mul_div(tokens, cursor); }
-            Some("-") => { consume(tokens, cursor); left -= parse_mul_div(tokens, cursor); }
+            Some("+") => {
+                consume(tokens, cursor);
+                left += parse_mul_div(tokens, cursor);
+            }
+            Some("-") => {
+                consume(tokens, cursor);
+                left -= parse_mul_div(tokens, cursor);
+            }
             _ => break,
         }
     }
@@ -202,7 +234,10 @@ fn parse_mul_div(tokens: &[Token], cursor: &mut usize) -> i64 {
     let mut left = parse_exponent(tokens, cursor);
     loop {
         match peek_op(tokens, cursor) {
-            Some("*") => { consume(tokens, cursor); left *= parse_exponent(tokens, cursor); }
+            Some("*") => {
+                consume(tokens, cursor);
+                left *= parse_exponent(tokens, cursor);
+            }
             Some("/") => {
                 consume(tokens, cursor);
                 let right = parse_exponent(tokens, cursor);
@@ -232,10 +267,26 @@ fn parse_exponent(tokens: &[Token], cursor: &mut usize) -> i64 {
 
 fn parse_unary(tokens: &[Token], cursor: &mut usize) -> i64 {
     match peek_op(tokens, cursor) {
-        Some("-") => { consume(tokens, cursor); -parse_unary(tokens, cursor) }
-        Some("+") => { consume(tokens, cursor); parse_unary(tokens, cursor) }
-        Some("!") => { consume(tokens, cursor); if parse_unary(tokens, cursor) == 0 { 1 } else { 0 } }
-        Some("~") => { consume(tokens, cursor); !parse_unary(tokens, cursor) }
+        Some("-") => {
+            consume(tokens, cursor);
+            -parse_unary(tokens, cursor)
+        }
+        Some("+") => {
+            consume(tokens, cursor);
+            parse_unary(tokens, cursor)
+        }
+        Some("!") => {
+            consume(tokens, cursor);
+            if parse_unary(tokens, cursor) == 0 {
+                1
+            } else {
+                0
+            }
+        }
+        Some("~") => {
+            consume(tokens, cursor);
+            !parse_unary(tokens, cursor)
+        }
         _ => parse_primary(tokens, cursor),
     }
 }

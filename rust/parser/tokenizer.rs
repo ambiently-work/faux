@@ -407,6 +407,7 @@ impl Tokenizer {
         }
     }
 
+    #[allow(clippy::should_implement_trait)] // Tokenizer is not an Iterator (Token is not Option<_>); the name mirrors the bash tokenizer interface
     pub fn next(&mut self) -> Token {
         if let Some(t) = self.peeked.take() {
             return t;
@@ -472,10 +473,7 @@ impl Tokenizer {
 
                 // Check if delimiter is quoted
                 let quoted = delim_raw.contains('\'') || delim_raw.contains('"');
-                let delimiter = delim_raw
-                    .replace('\'', "")
-                    .replace('"', "")
-                    .replace('\\', "");
+                let delimiter = delim_raw.replace(['\'', '"', '\\'], "");
 
                 self.pending_heredocs.push(PendingHeredoc {
                     delimiter,
@@ -761,12 +759,7 @@ impl Tokenizer {
                 })
             }
             '!' => {
-                if c2 == '\0'
-                    || c2 == ' '
-                    || c2 == '\t'
-                    || c2 == '\n'
-                    || is_meta_char(c2)
-                {
+                if c2 == '\0' || c2 == ' ' || c2 == '\t' || c2 == '\n' || is_meta_char(c2) {
                     self.advance();
                     Some(Token {
                         token_type: TokenType::Bang,
@@ -809,7 +802,10 @@ fn is_special_param(c: char) -> bool {
 }
 
 fn is_meta_char(c: char) -> bool {
-    matches!(c, ' ' | '\t' | '\n' | '|' | '&' | ';' | '(' | ')' | '<' | '>')
+    matches!(
+        c,
+        ' ' | '\t' | '\n' | '|' | '&' | ';' | '(' | ')' | '<' | '>'
+    )
 }
 
 #[cfg(test)]

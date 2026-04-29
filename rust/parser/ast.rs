@@ -72,11 +72,23 @@ pub struct Redirect {
     pub fd: i32,
     pub op: String,
     pub target: Word,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "heredocDelimiter")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "heredocDelimiter"
+    )]
     pub heredoc_delimiter: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "heredocBody")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "heredocBody"
+    )]
     pub heredoc_body: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "heredocQuoted")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "heredocQuoted"
+    )]
     pub heredoc_quoted: Option<bool>,
 }
 

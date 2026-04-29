@@ -57,7 +57,10 @@ impl Parser {
     fn eat(&mut self, tt: TokenType) -> Token {
         let t = self.next();
         if t.token_type != tt {
-            panic!("Expected {:?} but got {:?} ('{}')", tt, t.token_type, t.value);
+            panic!(
+                "Expected {:?} but got {:?} ('{}')",
+                tt, t.token_type, t.value
+            );
         }
         t
     }
@@ -104,7 +107,10 @@ impl Parser {
         let v = self.peek().value.clone();
         tt == TokenType::LParen
             || tt == TokenType::LBrace
-            || matches!(v.as_str(), "if" | "for" | "while" | "until" | "case" | "select")
+            || matches!(
+                v.as_str(),
+                "if" | "for" | "while" | "until" | "case" | "select"
+            )
     }
 
     // ---- Compound list / list parsing ----
@@ -677,8 +683,7 @@ impl Parser {
         }
 
         // For &> and &>>, fd is special
-        if op_token.token_type == TokenType::AndGreat
-            || op_token.token_type == TokenType::AndDGreat
+        if op_token.token_type == TokenType::AndGreat || op_token.token_type == TokenType::AndDGreat
         {
             fd = 1;
         }
@@ -743,10 +748,7 @@ impl Parser {
     fn parse_word(&mut self) -> Word {
         let t = self.next();
         if !is_word_token(&t.token_type) {
-            panic!(
-                "Expected word, got {:?} ('{}')",
-                t.token_type, t.value
-            );
+            panic!("Expected word, got {:?} ('{}')", t.token_type, t.value);
         }
         parse_word_string(&t.value)
     }
@@ -990,7 +992,12 @@ fn parse_dollar_expansion(chars: &[char], start: usize) -> (WordPart, usize) {
     let mut i = start + 1; // skip $
 
     if i >= chars.len() {
-        return (WordPart::Literal { value: "$".to_string() }, i);
+        return (
+            WordPart::Literal {
+                value: "$".to_string(),
+            },
+            i,
+        );
     }
 
     let c = chars[i];
@@ -1227,7 +1234,12 @@ fn parse_dollar_expansion(chars: &[char], start: usize) -> (WordPart, usize) {
     }
 
     // Lone $ — literal
-    (WordPart::Literal { value: "$".to_string() }, i)
+    (
+        WordPart::Literal {
+            value: "$".to_string(),
+        },
+        i,
+    )
 }
 
 fn parse_process_substitution(chars: &[char], start: usize, direction: &str) -> (WordPart, usize) {
@@ -1564,7 +1576,11 @@ mod tests {
                 match &cmd.args[0][0] {
                     WordPart::DoubleQuoted { parts } => {
                         // Should have: Literal("Hello, "), Variable("1"), Literal("!")
-                        assert!(parts.len() >= 2, "Expected at least 2 parts, got {:?}", parts);
+                        assert!(
+                            parts.len() >= 2,
+                            "Expected at least 2 parts, got {:?}",
+                            parts
+                        );
                         match &parts[1] {
                             WordPart::Variable { name, .. } => assert_eq!(name, "1"),
                             other => panic!("Expected Variable for $1, got {:?}", other),
