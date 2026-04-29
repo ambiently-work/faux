@@ -82,7 +82,7 @@
 		"@biomejs/js-api": "^4.0.0",
 		"@biomejs/wasm-nodejs": "^2.4.10",
 		"quickjs-emscripten": "^0.32.0",
-		"typescript": "^5.9.2"
+		"typescript": "^6.0.3"
 	},
 	"workspaces": [
 		"packages/docs"
