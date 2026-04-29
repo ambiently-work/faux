@@ -62,6 +62,5 @@
       - any-glob-to-any-file:
           - .github/workflows/security.yml
           - .github/workflows/codeql.yml
-          - .github/workflows/scorecard.yml
           - .gitleaks.toml
           - deny.toml

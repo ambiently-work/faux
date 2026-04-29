@@ -22,29 +22,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
-      statuses: write
     steps:
       - name: Validate PR title (semantic / conventional)
-        uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825  # v5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            chore
-            docs
-            test
-            refactor
-            perf
-            build
-            ci
-            revert
-            style
-          requireScope: false
-          subjectPattern: ^(?![A-Z]).+$
-          subjectPatternError: |
-            The PR subject "{subject}" must start with a lowercase letter.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          # Conventional Commits header: type(scope)?: subject
+          PATTERN='^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert|style)(\([a-z0-9 _.,/-]+\))?!?: [a-z0-9].*$'
+          if ! printf '%s\n' "$PR_TITLE" | grep -qE "$PATTERN"; then
+            echo "::error title=PR title::PR title does not follow Conventional Commits."
+            echo
+            echo "Got:      $PR_TITLE"
+            echo "Expected: <type>(<scope>)?: <subject>"
+            echo "Types:    feat, fix, chore, docs, test, refactor, perf, build, ci, revert, style"
+            echo "Subject:  must start with a lowercase letter or digit"
+            exit 1
+          fi
+          echo "PR title OK: $PR_TITLE"
 
   actionlint:
     name: Lint workflow YAML (actionlint)
@@ -52,11 +47,17 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
+      - name: Install actionlint
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
+          install -m 0755 ./actionlint "$HOME/.local/bin/actionlint"
+
       - name: Run actionlint
-        uses: raven-actions/actionlint@205b530c5d9fa8f44ae9ed59f341a0db994aa6f8  # v2
-        with:
-          matcher: true
-          fail-on-error: true
+        run: |
+          set -euo pipefail
+          "$HOME/.local/bin/actionlint" -color
 
   yamllint:
     name: yamllint
@@ -89,8 +90,19 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
+      - name: Install typos-cli
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin" /tmp/typos
+          curl -fsSL https://github.com/crate-ci/typos/releases/download/v1.30.0/typos-v1.30.0-x86_64-unknown-linux-musl.tar.gz \
+            -o /tmp/typos.tar.gz
+          tar -xzf /tmp/typos.tar.gz -C /tmp/typos
+          install -m 0755 /tmp/typos/typos "$HOME/.local/bin/typos"
+
       - name: Run typos
-        uses: crate-ci/typos@c96c46fae465ab9e3607401d9ce93d75e7998023  # v1
+        run: |
+          set -euo pipefail
+          "$HOME/.local/bin/typos"
 
   link-check:
     name: Link check (lychee)
@@ -105,11 +117,21 @@ jobs:
           key: lychee-${{ github.sha }}
           restore-keys: lychee-
 
+      - name: Install lychee
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin" /tmp/lychee
+          curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.18.1/lychee-x86_64-unknown-linux-gnu.tar.gz \
+            -o /tmp/lychee.tar.gz
+          tar -xzf /tmp/lychee.tar.gz -C /tmp/lychee
+          install -m 0755 /tmp/lychee/lychee "$HOME/.local/bin/lychee"
+
       - name: Run lychee
-        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411  # v2
-        with:
-          args: --cache --max-cache-age 7d --no-progress --config lychee.toml './**/*.md' './**/*.mdx' './**/*.html'
-          fail: true
+        run: |
+          "$HOME/.local/bin/lychee" \
+            --cache --max-cache-age 7d --no-progress \
+            --config lychee.toml \
+            './**/*.md' './**/*.mdx' './**/*.html'
 
   commitlint:
     name: Conventional commits

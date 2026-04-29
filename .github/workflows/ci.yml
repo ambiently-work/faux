@@ -46,17 +46,29 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-typecheck-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-typecheck-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
-        with:
-          version: latest
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -77,17 +89,29 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
-        with:
-          version: latest
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -123,13 +147,9 @@ jobs:
             echo "No coverage report produced." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  test-matrix:
-    name: Tests on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest]
+  test-macos:
+    name: Tests on macOS
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
@@ -137,17 +157,29 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
-        with:
-          version: latest
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -164,9 +196,8 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          components: rustfmt
+      - name: Ensure rustfmt component
+        run: rustup component add rustfmt
 
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
@@ -177,13 +208,20 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          components: clippy
-          targets: wasm32-unknown-unknown
+      - name: Ensure clippy + wasm32 target
+        run: |
+          rustup component add clippy
+          rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-clippy-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-clippy-${{ runner.os }}-
 
       - name: cargo clippy (host)
         run: cargo clippy --all-targets --all-features -- -D warnings
@@ -197,10 +235,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-rust-${{ runner.os }}-
 
       - name: cargo test
         run: cargo test --all-features --lib --bins --tests
@@ -211,10 +254,15 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-doc-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-doc-${{ runner.os }}-
 
       - name: cargo doc (deny warnings)
         env:
@@ -227,14 +275,23 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: dtolnay/rust-toolchain@1d2c4b624590a64002322b7093aad96383c8ce4e  # 1.78
+      - name: Install Rust 1.78 + wasm32 target
+        run: |
+          rustup toolchain install 1.78 --profile minimal --no-self-update
+          rustup default 1.78
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
-          targets: wasm32-unknown-unknown
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-msrv-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-msrv-${{ runner.os }}-
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
-
-      - name: cargo check
+      - name: cargo check (wasm32)
         run: cargo check --target wasm32-unknown-unknown --all-features
 
   wasm-build:
@@ -243,17 +300,29 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-wasm-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
-        with:
-          version: latest
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build wasm crate
         run: wasm-pack build --target web --out-dir pkg
@@ -311,17 +380,29 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-package-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-package-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
-        with:
-          version: latest
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -335,9 +416,6 @@ jobs:
       - name: npm pack (dry run)
         run: npm pack --dry-run
 
-      # publint and attw are advisory while pre-existing packaging issues
-      # are addressed (see issue tracker). They report findings into the job
-      # summary without blocking PR merges.
       - name: publint (advisory)
         continue-on-error: true
         run: bunx publint@latest
@@ -356,17 +434,29 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8  # stable
-        with:
-          targets: wasm32-unknown-unknown
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae  # v2
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-knip-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-knip-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa  # v0.4.0
-        with:
-          version: latest
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

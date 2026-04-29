@@ -31,25 +31,31 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: codelytv/pr-size-labeler@fb469dd4372da087f5f75175cc5ff84fda82b837  # v1
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          xs_label: "size/xs"
-          xs_max_size: "10"
-          s_label: "size/s"
-          s_max_size: "100"
-          m_label: "size/m"
-          m_max_size: "500"
-          l_label: "size/l"
-          l_max_size: "1000"
-          xl_label: "size/xl"
-          fail_if_xl: "false"
-          message_if_xl: |
-            This PR is larger than 1000 lines of changes. Consider splitting it into smaller PRs.
-          files_to_ignore: |
-            bun.lock
-            Cargo.lock
-            pkg/faux_wasm.js
-            pkg/faux_wasm_bg.wasm
-            pkg/faux_wasm.d.ts
-            pkg/faux_wasm_bg.wasm.d.ts
+      - name: Compute and apply size label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          IGNORE_PATTERN='^(bun\.lock|Cargo\.lock|pkg/faux_wasm.*)$'
+
+          TOTAL=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" \
+            --jq '.[] | select(.filename | test("'"$IGNORE_PATTERN"'") | not) | .additions + .deletions' \
+            | awk '{ s += $1 } END { print (s == "" ? 0 : s) }')
+
+          if   [ "$TOTAL" -le 10 ];   then LABEL="size/xs"
+          elif [ "$TOTAL" -le 100 ];  then LABEL="size/s"
+          elif [ "$TOTAL" -le 500 ];  then LABEL="size/m"
+          elif [ "$TOTAL" -le 1000 ]; then LABEL="size/l"
+          else                              LABEL="size/xl"
+          fi
+
+          echo "PR diff size (excluding lockfiles/wasm): $TOTAL lines → $LABEL"
+
+          for L in size/xs size/s size/m size/l size/xl; do
+            if [ "$L" != "$LABEL" ]; then
+              gh api -X DELETE "repos/${GH_REPO}/issues/${PR_NUMBER}/labels/${L}" >/dev/null 2>&1 || true
+            fi
+          done
+          gh api -X POST "repos/${GH_REPO}/issues/${PR_NUMBER}/labels" -f "labels[]=$LABEL" >/dev/null
