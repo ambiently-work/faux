@@ -152,5 +152,6 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          bunx --package=@commitlint/cli --package=@commitlint/config-conventional -- \
-            commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+          # Install both packages so commitlint can find @commitlint/config-conventional.
+          bun add --dev --no-save @commitlint/cli@latest @commitlint/config-conventional@latest
+          bunx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose

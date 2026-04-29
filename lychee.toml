@@ -16,6 +16,10 @@ exclude = [
     "^https?://github\\.com/.*/(?:issues|pulls|pull|commits|commit|releases/tag)/",
     "^https?://twitter\\.com",
     "^https?://x\\.com",
+    # README references a planned monorepo split that doesn't exist yet.
+    "/packages/(?:core|cli|wasm|parser)$",
+    # Astro routes look like filesystem paths to lychee.
+    "^/(?:guides|reference|examples)/",
 ]
 
 # Don't fail on transient network issues or rate limits.
