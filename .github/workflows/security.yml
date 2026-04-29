@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.local/bin" /tmp/cargo-audit
-          curl -fsSL "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv0.21.1/cargo-audit-x86_64-unknown-linux-musl-v0.21.1.tgz" \
+          curl -fsSL "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv0.22.1/cargo-audit-x86_64-unknown-linux-musl-v0.22.1.tgz" \
             -o /tmp/cargo-audit.tgz
           tar -xzf /tmp/cargo-audit.tgz --strip-components=1 -C /tmp/cargo-audit
           install -m 0755 /tmp/cargo-audit/cargo-audit "$HOME/.local/bin/cargo-audit"
@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.local/bin" /tmp/deny
-          curl -fsSL https://github.com/EmbarkStudios/cargo-deny/releases/download/0.16.4/cargo-deny-0.16.4-x86_64-unknown-linux-musl.tar.gz \
+          curl -fsSL https://github.com/EmbarkStudios/cargo-deny/releases/download/0.19.4/cargo-deny-0.19.4-x86_64-unknown-linux-musl.tar.gz \
             -o /tmp/deny.tar.gz
           tar -xzf /tmp/deny.tar.gz --strip-components=1 -C /tmp/deny
           install -m 0755 /tmp/deny/cargo-deny "$HOME/.local/bin/cargo-deny"
