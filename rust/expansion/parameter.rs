@@ -10,9 +10,7 @@ pub async fn expand_variable_op(name: &str, op: &str, arg: &Word, bridge: &Shell
     match op {
         // Use default value
         "-" => value.unwrap_or(arg_str),
-        ":-" => value
-            .filter(|v| !v.is_empty())
-            .unwrap_or(arg_str),
+        ":-" => value.filter(|v| !v.is_empty()).unwrap_or(arg_str),
 
         // Assign default value
         "=" | ":=" => {
@@ -52,7 +50,7 @@ pub async fn expand_variable_op(name: &str, op: &str, arg: &Word, bridge: &Shell
             }
         }
         ":+" => {
-            if value.as_deref().map_or(false, |v| !v.is_empty()) {
+            if value.as_deref().is_some_and(|v| !v.is_empty()) {
                 arg_str
             } else {
                 String::new()

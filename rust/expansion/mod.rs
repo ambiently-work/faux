@@ -16,9 +16,7 @@ fn expand_part<'a>(
     part: &'a WordPart,
     bridge: &'a ShellBridge,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = String> + 'a>> {
-    Box::pin(async move {
-        expand_part_inner(part, bridge).await
-    })
+    Box::pin(async move { expand_part_inner(part, bridge).await })
 }
 
 async fn expand_part_inner(part: &WordPart, bridge: &ShellBridge) -> String {
@@ -48,7 +46,7 @@ async fn expand_part_inner(part: &WordPart, bridge: &ShellBridge) -> String {
 
         WordPart::CommandSubstitution { body } => {
             let executor = crate::executor::Executor::new_ref(bridge);
-            let result = executor.execute(&**body, "").await;
+            let result = executor.execute(body, "").await;
             // Remove trailing newlines like bash does
             result.stdout.trim_end_matches('\n').to_string()
         }
@@ -64,11 +62,7 @@ async fn expand_part_inner(part: &WordPart, bridge: &ShellBridge) -> String {
 
         WordPart::Tilde { user } => {
             if user.is_empty()
-                || bridge
-                    .env_get("USER")
-                    .as_string()
-                    .as_deref()
-                    == Some(user.as_str())
+                || bridge.env_get("USER").as_string().as_deref() == Some(user.as_str())
             {
                 bridge
                     .env_get("HOME")
@@ -91,9 +85,8 @@ async fn expand_part_inner(part: &WordPart, bridge: &ShellBridge) -> String {
 
 fn expand_variable(name: &str, bridge: &ShellBridge) -> String {
     // Special variables
-    match name {
-        "?" => return bridge.env_last_exit_code().to_string(),
-        _ => {}
+    if name == "?" {
+        return bridge.env_last_exit_code().to_string();
     }
 
     bridge.env_get(name).as_string().unwrap_or_default()

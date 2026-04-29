@@ -1,0 +1,35 @@
+# Configuration for crate-ci/typos.
+# See https://github.com/crate-ci/typos for syntax.
+
+[default]
+# Treat shell snippets as code, not prose — fewer false positives.
+extend-ignore-re = [
+    # Hex SHAs in commits, references, and lockfiles.
+    "\\b[0-9a-f]{7,40}\\b",
+    # base64 blobs.
+    "\\b[A-Za-z0-9+/]{40,}={0,2}\\b",
+]
+
+[default.extend-words]
+# Project / shell vocabulary that the dictionary mis-flags.
+ans = "ans"
+crate = "crate"
+ot = "ot"
+hd = "hd"
+inh = "inh"
+strat = "strat"
+typ = "typ"
+flate = "flate"
+# Common shell idioms.
+fro = "fro"
+
+[files]
+extend-exclude = [
+    "bun.lock",
+    "Cargo.lock",
+    "pkg/**",
+    "dist/**",
+    "target/**",
+    "packages/docs/.astro/**",
+    "tsconfig.tsbuildinfo",
+]

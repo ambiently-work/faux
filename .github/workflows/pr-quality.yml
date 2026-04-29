@@ -1,0 +1,157 @@
+name: PR Quality
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Validate PR title (semantic / conventional)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          # Conventional Commits header: type(scope)?: subject
+          PATTERN='^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert|style)(\([a-z0-9 _.,/-]+\))?!?: [a-z0-9].*$'
+          if ! printf '%s\n' "$PR_TITLE" | grep -qE "$PATTERN"; then
+            echo "::error title=PR title::PR title does not follow Conventional Commits."
+            echo
+            echo "Got:      $PR_TITLE"
+            echo "Expected: <type>(<scope>)?: <subject>"
+            echo "Types:    feat, fix, chore, docs, test, refactor, perf, build, ci, revert, style"
+            echo "Subject:  must start with a lowercase letter or digit"
+            exit 1
+          fi
+          echo "PR title OK: $PR_TITLE"
+
+  actionlint:
+    name: Lint workflow YAML (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Install actionlint
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
+          install -m 0755 ./actionlint "$HOME/.local/bin/actionlint"
+
+      - name: Run actionlint
+        run: |
+          set -euo pipefail
+          "$HOME/.local/bin/actionlint" -color
+
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Install yamllint
+        run: pipx install yamllint
+
+      - name: Run yamllint
+        run: yamllint --strict .
+
+  markdownlint:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: latest
+
+      - name: Run markdownlint
+        run: bunx markdownlint-cli2@latest
+
+  typos:
+    name: Spell check (typos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Install typos-cli
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin" /tmp/typos
+          curl -fsSL https://github.com/crate-ci/typos/releases/download/v1.30.0/typos-v1.30.0-x86_64-unknown-linux-musl.tar.gz \
+            -o /tmp/typos.tar.gz
+          tar -xzf /tmp/typos.tar.gz -C /tmp/typos
+          install -m 0755 /tmp/typos/typos "$HOME/.local/bin/typos"
+
+      - name: Run typos
+        run: |
+          set -euo pipefail
+          "$HOME/.local/bin/typos"
+
+  link-check:
+    name: Link check (lychee)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Restore lychee cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.sha }}
+          restore-keys: lychee-
+
+      - name: Install lychee
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin" /tmp/lychee
+          curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.18.1/lychee-x86_64-unknown-linux-gnu.tar.gz \
+            -o /tmp/lychee.tar.gz
+          tar -xzf /tmp/lychee.tar.gz -C /tmp/lychee
+          install -m 0755 /tmp/lychee/lychee "$HOME/.local/bin/lychee"
+
+      - name: Run lychee
+        run: |
+          "$HOME/.local/bin/lychee" \
+            --cache --max-cache-age 7d --no-progress \
+            --config lychee.toml \
+            './**/*.md' './**/*.mdx' './**/*.html'
+
+  commitlint:
+    name: Conventional commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: latest
+
+      - name: Lint commit messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Install both packages so commitlint can find @commitlint/config-conventional.
+          bun add --dev --no-save @commitlint/cli@latest @commitlint/config-conventional@latest
+          bunx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose

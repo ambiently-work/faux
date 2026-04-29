@@ -145,8 +145,7 @@ impl Executor {
     /// The bridge is a JS object handle — cloning its JsValue just copies the reference.
     pub fn new_ref(bridge: &ShellBridge) -> Self {
         let js_val: &JsValue = bridge.as_ref();
-        let bridge_clone: ShellBridge =
-            wasm_bindgen::JsCast::unchecked_into(js_val.clone());
+        let bridge_clone: ShellBridge = wasm_bindgen::JsCast::unchecked_into(js_val.clone());
         Executor {
             bridge: bridge_clone,
         }
@@ -176,7 +175,8 @@ impl Executor {
         &'a self,
         node: &'a AstNode,
         stdin: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ShellResult, Signal>> + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ShellResult, Signal>> + 'a>>
+    {
         Box::pin(self.execute_node_inner(node, stdin))
     }
 
@@ -274,8 +274,8 @@ impl Executor {
                 aliased_cmd.push_str(&expanded);
             }
             let ast_val = self.bridge.parse_input(&aliased_cmd);
-            let ast: AstNode = serde_wasm_bindgen::from_value(ast_val)
-                .unwrap_or(AstNode::Command(CommandNode {
+            let ast: AstNode =
+                serde_wasm_bindgen::from_value(ast_val).unwrap_or(AstNode::Command(CommandNode {
                     name: vec![],
                     prefix: vec![],
                     args: vec![],
@@ -300,8 +300,8 @@ impl Executor {
         // Check for function
         let func_val = self.bridge.env_get_function(&name);
         if !func_val.is_undefined() && !func_val.is_null() {
-            let func_ast: AstNode = serde_wasm_bindgen::from_value(func_val)
-                .unwrap_or(AstNode::Command(CommandNode {
+            let func_ast: AstNode =
+                serde_wasm_bindgen::from_value(func_val).unwrap_or(AstNode::Command(CommandNode {
                     name: vec![],
                     prefix: vec![],
                     args: vec![],
@@ -320,8 +320,7 @@ impl Executor {
         let args_js: Vec<JsValue> = expanded_args.iter().map(|s| JsValue::from_str(s)).collect();
 
         // Serialize output redirects for JS
-        let redirects_js =
-            serde_wasm_bindgen::to_value(&output_redirects).unwrap_or(JsValue::NULL);
+        let redirects_js = serde_wasm_bindgen::to_value(&output_redirects).unwrap_or(JsValue::NULL);
 
         let promise = self
             .bridge
@@ -365,7 +364,9 @@ impl Executor {
                 Ok(result)
             }
             Err(e) => {
-                let msg = e.as_string().unwrap_or_else(|| "command failed".to_string());
+                let msg = e
+                    .as_string()
+                    .unwrap_or_else(|| "command failed".to_string());
                 Ok(ShellResult {
                     stdout: String::new(),
                     stderr: format!("{}\n", msg),
@@ -383,11 +384,7 @@ impl Executor {
         execute_pipeline(&node.commands, node.negated, stdin, self).await
     }
 
-    async fn execute_list_node(
-        &self,
-        node: &ListNode,
-        stdin: &str,
-    ) -> Result<ShellResult, Signal> {
+    async fn execute_list_node(&self, node: &ListNode, stdin: &str) -> Result<ShellResult, Signal> {
         let left_result = self.execute_node(&node.left, stdin).await?;
 
         match node.operator.as_str() {
@@ -438,7 +435,8 @@ impl Executor {
                 .env_get(&node.name)
                 .as_string()
                 .unwrap_or_default();
-            self.bridge.env_set(&node.name, &format!("{}{}", existing, value));
+            self.bridge
+                .env_set(&node.name, &format!("{}{}", existing, value));
         } else {
             self.bridge.env_set(&node.name, &value);
         }
@@ -618,11 +616,7 @@ impl Executor {
         })
     }
 
-    async fn execute_case_node(
-        &self,
-        node: &CaseNode,
-        stdin: &str,
-    ) -> Result<ShellResult, Signal> {
+    async fn execute_case_node(&self, node: &CaseNode, stdin: &str) -> Result<ShellResult, Signal> {
         let word = self.expand_word(&node.word).await;
         let mut all_stdout = String::new();
         let mut all_stderr = String::new();
@@ -707,10 +701,7 @@ impl Executor {
         Ok(ShellResult::empty())
     }
 
-    async fn execute_arithmetic_node(
-        &self,
-        node: &ArithmeticNode,
-    ) -> Result<ShellResult, Signal> {
+    async fn execute_arithmetic_node(&self, node: &ArithmeticNode) -> Result<ShellResult, Signal> {
         // Resolve variables in expression
         let resolved = resolve_arith_vars(&node.expression, &self.bridge);
         let result = crate::arithmetic::evaluate(&resolved);
@@ -735,7 +726,10 @@ fn resolve_arith_vars(expr: &str, bridge: &ShellBridge) -> String {
                 name.push(chars[i]);
                 i += 1;
             }
-            let val = bridge.env_get(&name).as_string().unwrap_or_else(|| "0".to_string());
+            let val = bridge
+                .env_get(&name)
+                .as_string()
+                .unwrap_or_else(|| "0".to_string());
             result.push_str(&val);
         } else if chars[i].is_ascii_alphabetic() || chars[i] == '_' {
             let mut name = String::new();
@@ -743,7 +737,10 @@ fn resolve_arith_vars(expr: &str, bridge: &ShellBridge) -> String {
                 name.push(chars[i]);
                 i += 1;
             }
-            let val = bridge.env_get(&name).as_string().unwrap_or_else(|| "0".to_string());
+            let val = bridge
+                .env_get(&name)
+                .as_string()
+                .unwrap_or_else(|| "0".to_string());
             result.push_str(&val);
         } else {
             result.push(chars[i]);
@@ -762,6 +759,7 @@ fn glob_pattern_match(text: &str, pattern: &str) -> bool {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // variants are constructed by control-flow builtins; clippy can't see across the JS bridge
 pub enum Signal {
     Exit(i32),
     Return(i32),

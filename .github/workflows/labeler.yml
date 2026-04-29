@@ -1,0 +1,61 @@
+name: Labeler
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  label-paths:
+    name: Apply path-based labels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9  # v5
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true
+
+  label-size:
+    name: Apply size label
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Compute and apply size label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          IGNORE_PATTERN='^(bun\.lock|Cargo\.lock|pkg/faux_wasm.*)$'
+
+          TOTAL=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" \
+            --jq '.[] | select(.filename | test("'"$IGNORE_PATTERN"'") | not) | .additions + .deletions' \
+            | awk '{ s += $1 } END { print (s == "" ? 0 : s) }')
+
+          if   [ "$TOTAL" -le 10 ];   then LABEL="size/xs"
+          elif [ "$TOTAL" -le 100 ];  then LABEL="size/s"
+          elif [ "$TOTAL" -le 500 ];  then LABEL="size/m"
+          elif [ "$TOTAL" -le 1000 ]; then LABEL="size/l"
+          else                              LABEL="size/xl"
+          fi
+
+          echo "PR diff size (excluding lockfiles/wasm): $TOTAL lines → $LABEL"
+
+          for L in size/xs size/s size/m size/l size/xl; do
+            if [ "$L" != "$LABEL" ]; then
+              gh api -X DELETE "repos/${GH_REPO}/issues/${PR_NUMBER}/labels/${L}" >/dev/null 2>&1 || true
+            fi
+          done
+          gh api -X POST "repos/${GH_REPO}/issues/${PR_NUMBER}/labels" -f "labels[]=$LABEL" >/dev/null

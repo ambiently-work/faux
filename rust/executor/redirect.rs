@@ -54,12 +54,7 @@ pub fn apply_input_redirect(
 pub fn get_output_redirects(redirects: &[ResolvedRedirect]) -> Vec<ResolvedRedirect> {
     redirects
         .iter()
-        .filter(|r| {
-            r.op == ">"
-                || r.op == ">>"
-                || r.op == "&>"
-                || r.op == "&>>"
-        })
+        .filter(|r| r.op == ">" || r.op == ">>" || r.op == "&>" || r.op == "&>>")
         .cloned()
         .collect()
 }

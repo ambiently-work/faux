@@ -1,0 +1,66 @@
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
+          - .github/dependabot.yml
+          - .github/labeler.yml
+
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "**/*.mdx"
+          - packages/docs/**
+
+"area: rust":
+  - changed-files:
+      - any-glob-to-any-file:
+          - rust/**
+          - Cargo.toml
+          - Cargo.lock
+          - deny.toml
+
+"area: wasm":
+  - changed-files:
+      - any-glob-to-any-file:
+          - pkg/**
+          - src/wasm/**
+          - src/wasm-bridge.ts
+          - src/wasm-runtime.ts
+          - src/wasm-interfaces.ts
+
+"area: shell":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/shell.ts
+          - src/parser/**
+          - src/executor/**
+          - src/expansion/**
+          - src/commands/**
+
+"area: tools":
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/tools/**
+          - tests/tools/**
+
+"area: tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - tests/**
+
+"area: deps":
+  - changed-files:
+      - any-glob-to-any-file:
+          - package.json
+          - bun.lock
+          - Cargo.toml
+          - Cargo.lock
+
+"area: security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/security.yml
+          - .github/workflows/codeql.yml
+          - .gitleaks.toml
+          - deny.toml

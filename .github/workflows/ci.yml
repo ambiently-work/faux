@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  merge_group:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,16 +14,37 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  BUN_VERSION: latest
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
 jobs:
-  check:
-    name: Lint, typecheck, test
+  biome:
+    name: Lint & format (Biome)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Biome check
+        run: bun run check
+
+  typecheck:
+    name: Typecheck (tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Add wasm32 Rust target
         run: rustup target add wasm32-unknown-unknown
@@ -33,8 +56,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          key: cargo-typecheck-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-typecheck-${{ runner.os }}-
 
       - name: Cache wasm-pack binary
         id: wasm-pack-cache
@@ -50,14 +73,456 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Biome check
-        run: bun run check
-
-      - name: Build wasm crate
+      - name: Build wasm crate (provides .d.ts for typecheck)
         run: wasm-pack build --target web --out-dir pkg
 
       - name: Typecheck
         run: bunx tsc -b --force
 
+  test:
+    name: Tests (bun test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build wasm crate
+        run: wasm-pack build --target web --out-dir pkg
+
+      - name: Run tests with coverage
+        run: bun test --coverage --coverage-reporter=lcov --coverage-dir=coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
+            awk -F: '
+              /^SF:/ { files++ }
+              /^LF:/ { lf += $2 }
+              /^LH:/ { lh += $2 }
+              END {
+                if (lf > 0) printf("Lines: %d / %d (%.1f%%) across %d files\n", lh, lf, (lh/lf)*100, files)
+              }
+            ' coverage/lcov.info >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No coverage report produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test-macos:
+    name: Tests on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build wasm crate
+        run: wasm-pack build --target web --out-dir pkg
+
       - name: Run tests
-        run: bun run test
+        run: bun test
+
+  rust-fmt:
+    name: Rust format (cargo fmt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Ensure rustfmt component
+        run: rustup component add rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+  rust-clippy:
+    name: Rust lint (cargo clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Ensure clippy + wasm32 target
+        run: |
+          rustup component add clippy
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-clippy-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-clippy-${{ runner.os }}-
+
+      - name: cargo clippy (host)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: cargo clippy (wasm32)
+        run: cargo clippy --target wasm32-unknown-unknown --all-features -- -D warnings
+
+  rust-test:
+    name: Rust tests (cargo test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-test-rust-${{ runner.os }}-
+
+      - name: cargo test
+        run: cargo test --all-features --lib --bins --tests
+
+  rust-doc:
+    name: Rust doc build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-doc-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-doc-${{ runner.os }}-
+
+      - name: cargo doc (deny warnings)
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --no-deps --all-features
+
+  rust-msrv:
+    name: Rust MSRV check (1.78)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Install Rust 1.78 + wasm32 target
+        run: |
+          rustup toolchain install 1.78 --profile minimal --no-self-update
+          rustup default 1.78
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-msrv-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-msrv-${{ runner.os }}-
+
+      - name: cargo check (wasm32)
+        run: cargo check --target wasm32-unknown-unknown --all-features
+
+  wasm-build:
+    name: wasm-pack build & size budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-wasm-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build wasm crate
+        run: wasm-pack build --target web --out-dir pkg
+
+      - name: Report wasm size
+        id: wasm_size
+        run: |
+          set -euo pipefail
+          WASM_PATH="pkg/faux_wasm_bg.wasm"
+          if [ ! -f "$WASM_PATH" ]; then
+            echo "::error::wasm artifact not found at $WASM_PATH"
+            exit 1
+          fi
+          BYTES=$(wc -c < "$WASM_PATH")
+          KB=$(( BYTES / 1024 ))
+          echo "bytes=$BYTES" >> "$GITHUB_OUTPUT"
+          echo "kb=$KB" >> "$GITHUB_OUTPUT"
+          {
+            echo "## WASM size"
+            echo ""
+            printf '%s — **%d KB** (%d bytes)\n' "$WASM_PATH" "$KB" "$BYTES"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce size budget (700 KB)
+        env:
+          BUDGET_KB: "700"
+          ACTUAL_KB: ${{ steps.wasm_size.outputs.kb }}
+        run: |
+          set -euo pipefail
+          if [ "$ACTUAL_KB" -gt "$BUDGET_KB" ]; then
+            echo "::error::wasm size $ACTUAL_KB KB exceeds budget $BUDGET_KB KB"
+            exit 1
+          fi
+          echo "wasm size $ACTUAL_KB KB is within budget ($BUDGET_KB KB)"
+
+      - name: Upload wasm artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: wasm-pkg
+          path: pkg/
+          retention-days: 7
+
+  package-verify:
+    name: Verify publishable package (publint + attw)
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "22"
+
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-package-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-package-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build wasm crate
+        run: wasm-pack build --target web --out-dir pkg
+
+      - name: Build TypeScript
+        run: bunx tsc -b --force
+
+      - name: npm pack (dry run)
+        run: npm pack --dry-run
+
+      - name: publint (advisory)
+        continue-on-error: true
+        run: bunx publint@latest
+
+      - name: Are the types wrong? (advisory)
+        continue-on-error: true
+        run: bunx --bun @arethetypeswrong/cli@latest --pack . --ignore-rules cjs-resolves-to-esm
+
+  knip:
+    name: Unused code (knip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Add wasm32 Rust target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-knip-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-knip-${{ runner.os }}-
+
+      - name: Cache wasm-pack binary
+        id: wasm-pack-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-v0.13.1
+
+      - name: Install wasm-pack
+        if: steps.wasm-pack-cache.outputs.cache-hit != 'true'
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build wasm crate
+        run: wasm-pack build --target web --out-dir pkg
+
+      - name: knip
+        run: bunx knip@latest --no-progress
+
+  docs:
+    name: Docs (astro check & build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: astro check
+        working-directory: packages/docs
+        run: bunx astro check
+
+      - name: Build docs
+        run: bun run docs:build
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: docs-dist
+          path: packages/docs/dist
+          retention-days: 7
+
+  required:
+    name: All required checks passed
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - biome
+      - typecheck
+      - test
+      - rust-fmt
+      - rust-clippy
+      - rust-test
+      - rust-doc
+      - rust-msrv
+      - wasm-build
+      - package-verify
+      - knip
+      - docs
+    steps:
+      - name: Verify all dependencies succeeded
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$NEEDS_JSON" | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          failed = [name for name, info in data.items() if info.get("result") not in ("success", "skipped")]
+          if failed:
+              print("Failed jobs:", ", ".join(failed))
+              sys.exit(1)
+          print("All required jobs passed.")
+          '

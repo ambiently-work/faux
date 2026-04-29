@@ -1,0 +1,24 @@
+# CODEOWNERS — review assignments for ambiently-work/faux
+# Lines later in the file take precedence over earlier ones for matching paths.
+
+# Default: everything is owned by the core maintainers.
+*                                   @lucasilverentand
+
+# CI / build / release
+/.github/                           @lucasilverentand
+/.github/workflows/                 @lucasilverentand
+/release-please-config.json         @lucasilverentand
+/.release-please-manifest.json      @lucasilverentand
+
+# Rust + WASM
+/Cargo.toml                         @lucasilverentand
+/Cargo.lock                         @lucasilverentand
+/rust/                              @lucasilverentand
+/pkg/                               @lucasilverentand
+/src/wasm*/                         @lucasilverentand
+/src/wasm-*.ts                      @lucasilverentand
+
+# Docs
+/packages/docs/                     @lucasilverentand
+/README.md                          @lucasilverentand
+/docs/                              @lucasilverentand

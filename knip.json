@@ -1,0 +1,23 @@
+{
+	"$schema": "https://unpkg.com/knip@latest/schema.json",
+	"ignoreBinaries": ["wasm-pack"],
+	"exclude": ["exports", "types", "nsExports", "nsTypes", "enumMembers"],
+	"workspaces": {
+		".": {
+			"entry": ["tests/**/*.test.ts"],
+			"project": ["src/**/*.ts", "cli/**/*.ts", "tests/**/*.ts"],
+			"ignore": ["src/io/pipe.ts"],
+			"ignoreDependencies": [
+				"@biomejs/wasm-nodejs",
+				"@biomejs/js-api",
+				"@commitlint/cli",
+				"@commitlint/config-conventional"
+			]
+		},
+		"packages/docs": {
+			"entry": ["src/**/*.{astro,ts,tsx,mdx}"],
+			"project": ["src/**/*.{astro,ts,tsx,mdx}"],
+			"ignoreDependencies": ["@ambiently-work/faux"]
+		}
+	}
+}
