@@ -13,7 +13,7 @@
 		"@xterm/addon-web-links": "^0.11.0",
 		"@xterm/xterm": "^5.5.0",
 		"astro": "^5.7.10",
-		"sharp": "^0.33.0",
+		"sharp": "^0.34.5",
 		"starlight-theme-rapide": "^0.5.2"
 	}
 }
