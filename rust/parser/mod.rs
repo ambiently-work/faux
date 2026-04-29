@@ -41,8 +41,8 @@ impl Parser {
     }
 
     fn peek(&mut self) -> &Token {
-        if self.pushed_back.is_some() {
-            return self.pushed_back.as_ref().unwrap();
+        if let Some(t) = self.pushed_back.as_ref() {
+            return t;
         }
         self.tokenizer.peek()
     }
