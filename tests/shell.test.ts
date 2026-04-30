@@ -183,6 +183,38 @@ describe("Shell", () => {
 			const r = await shell.run("grep localhost < /etc/hosts");
 			expect(r.stdout).toBe("127.0.0.1 localhost\n::1 localhost\n");
 		});
+
+		test("> file 2>&1 merges stderr into stdout file", async () => {
+			const shell = createShell();
+			const r = await shell.run("cat /no_such_file > /tmp/combined.txt 2>&1");
+			// Both stdout and stderr should be empty on the caller side
+			expect(r.stdout).toBe("");
+			expect(r.stderr).toBe("");
+			// The error message should have been written to the file
+			const contents = await shell.run("cat /tmp/combined.txt");
+			expect(contents.stdout).toContain("No such file or directory");
+		});
+
+		test("2>&1 > file routes stderr to original stdout, stdout to file", async () => {
+			const shell = createShell();
+			// Reversed order: fd2 duplicates fd1 (buffer) first, then fd1 is redirected to file.
+			// Result: stdout goes to file, stderr stays on caller's stderr.
+			const r = await shell.run("cat /no_such_file 2>&1 > /tmp/stdout_only.txt");
+			// stderr was duplicated to original fd1 (buffer), so it comes back as stdout
+			expect(r.stdout).toContain("No such file or directory");
+			// file should be empty (no stdout from cat on a missing file)
+			const contents = await shell.run("cat /tmp/stdout_only.txt");
+			expect(contents.stdout).toBe("");
+		});
+
+		test("&> file redirects both stdout and stderr to file", async () => {
+			const shell = createShell();
+			const r = await shell.run("cat /no_such_file &> /tmp/both.txt");
+			expect(r.stdout).toBe("");
+			expect(r.stderr).toBe("");
+			const contents = await shell.run("cat /tmp/both.txt");
+			expect(contents.stdout).toContain("No such file or directory");
+		});
 	});
 
 	describe("text processing", () => {
