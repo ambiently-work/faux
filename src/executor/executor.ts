@@ -51,7 +51,7 @@ export class Executor {
 			return result;
 		} catch (e) {
 			if (e instanceof ShellExit) {
-				return { stdout: "", stderr: "", exitCode: e.code };
+				return { stdout: e.stdout, stderr: e.stderr, exitCode: e.code };
 			}
 			if (e instanceof ShellReturn) {
 				return { stdout: "", stderr: "", exitCode: e.code };
@@ -205,6 +205,42 @@ export class Executor {
 		);
 
 		const outputRedirects = getOutputRedirects(redirects);
+
+		// exec special handling:
+		// - exec REDIRS (no command): persist redirects to the shell's fd table and return.
+		// - exec CMD args: run CMD then replace the shell by throwing ShellExit.
+		if (name === "exec") {
+			if (expandedArgs.length === 0) {
+				// Apply redirects to the shell's persistent fd table. Convert > to >> so
+				// subsequent commands append to the already-opened file rather than
+				// re-truncating it on every invocation.
+				for (const r of outputRedirects) {
+					const path = this.resolvePath(r.target);
+					if (r.op === ">" || r.op === "&>") {
+						this.fs.writeFile(path, "");
+						const persistOp = r.op === "&>" ? "&>>" : ">>";
+						this.env.persistentFdOverrides.push({ fd: r.fd, op: persistOp, target: path });
+					} else if (r.op === ">>" || r.op === "&>>") {
+						if (!this.fs.exists(path)) this.fs.writeFile(path, "");
+						this.env.persistentFdOverrides.push({ fd: r.fd, op: r.op, target: path });
+					} else if (r.op === ">&") {
+						this.env.persistentFdOverrides.push({ fd: r.fd, op: r.op, target: r.target });
+					}
+				}
+				this.env.lastExitCode = 0;
+				return { stdout: "", stderr: "", exitCode: 0 };
+			}
+
+			// exec CMD: run command then exit the shell with its status.
+			const execResult = await executeCommand(
+				expandedArgs[0],
+				expandedArgs.slice(1),
+				effectiveStdin,
+				outputRedirects,
+				ctx,
+			);
+			throw new ShellExit(execResult.exitCode, execResult.stdout, execResult.stderr);
+		}
 
 		const result = await executeCommand(name, expandedArgs, effectiveStdin, outputRedirects, ctx);
 
