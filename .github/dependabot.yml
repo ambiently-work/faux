@@ -1,0 +1,138 @@
+# Grouped Dependabot updates. Replaces Renovate.
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+
+updates:
+  # JavaScript — root package + docs workspace.
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/packages/*"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - "area: deps"
+    commit-message:
+      prefix: chore
+      include: scope
+    # Mirror the org's Renovate `minimumReleaseAge: 7 days`.
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
+    groups:
+      tooling:
+        applies-to: version-updates
+        patterns:
+          - "@biomejs/*"
+          - "typescript"
+          - "@types/*"
+        update-types:
+          - minor
+          - patch
+      astro:
+        applies-to: version-updates
+        patterns:
+          - "astro"
+          - "@astrojs/*"
+          - "starlight*"
+          - "sharp"
+        update-types:
+          - minor
+          - patch
+      xterm:
+        applies-to: version-updates
+        patterns:
+          - "@xterm/*"
+        update-types:
+          - minor
+          - patch
+      tree-sitter:
+        applies-to: version-updates
+        patterns:
+          - "tree-sitter*"
+          - "web-tree-sitter"
+        update-types:
+          - minor
+          - patch
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # Rust — WASM runtime crate.
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - "area: rust"
+    commit-message:
+      prefix: chore
+      include: scope
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
+    groups:
+      wasm-bindgen:
+        applies-to: version-updates
+        patterns:
+          - "wasm-bindgen*"
+          - "js-sys"
+          - "serde-wasm-bindgen"
+        update-types:
+          - minor
+          - patch
+      serde:
+        applies-to: version-updates
+        patterns:
+          - "serde"
+          - "serde_*"
+        update-types:
+          - minor
+          - patch
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions used by workflows.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    labels:
+      - dependencies
+      - "area: ci"
+    commit-message:
+      prefix: ci
+      include: scope
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
