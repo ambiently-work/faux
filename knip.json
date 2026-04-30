@@ -11,7 +11,8 @@
 				"@biomejs/wasm-nodejs",
 				"@biomejs/js-api",
 				"@commitlint/cli",
-				"@commitlint/config-conventional"
+				"@commitlint/config-conventional",
+				"tree-sitter-wasms"
 			]
 		},
 		"packages/docs": {
