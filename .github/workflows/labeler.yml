@@ -38,7 +38,10 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          IGNORE_PATTERN='^(bun\.lock|Cargo\.lock|pkg/faux_wasm.*)$'
+          # Double-escape backslashes so jq's string literal parses them
+          # into the regex `\.` (literal period). A single `\.` is rejected
+          # by jq as an invalid escape sequence.
+          IGNORE_PATTERN='^(bun\\.lock|Cargo\\.lock|pkg/faux_wasm.*)$'
 
           TOTAL=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" \
             --jq '.[] | select(.filename | test("'"$IGNORE_PATTERN"'") | not) | .additions + .deletions' \
