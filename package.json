@@ -85,7 +85,7 @@
 		"quickjs-emscripten": "^0.32.0",
 		"tree-sitter-wasms": "^0.1.13",
 		"typescript": "^5.9.2",
-		"web-tree-sitter": "0.22"
+		"web-tree-sitter": "0.26"
 	},
 	"workspaces": [
 		"packages/docs"
