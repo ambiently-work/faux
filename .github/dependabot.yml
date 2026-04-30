@@ -33,6 +33,7 @@ updates:
           - "typescript"
           - "@types/*"
         update-types:
+          - major
           - minor
           - patch
       astro:
@@ -43,6 +44,7 @@ updates:
           - "starlight*"
           - "sharp"
         update-types:
+          - major
           - minor
           - patch
       xterm:
@@ -50,6 +52,7 @@ updates:
         patterns:
           - "@xterm/*"
         update-types:
+          - major
           - minor
           - patch
       tree-sitter:
@@ -58,6 +61,7 @@ updates:
           - "tree-sitter*"
           - "web-tree-sitter"
         update-types:
+          - major
           - minor
           - patch
       minor-and-patch:
@@ -95,6 +99,7 @@ updates:
           - "js-sys"
           - "serde-wasm-bindgen"
         update-types:
+          - major
           - minor
           - patch
       serde:
@@ -103,6 +108,7 @@ updates:
           - "serde"
           - "serde_*"
         update-types:
+          - major
           - minor
           - patch
       minor-and-patch:
