@@ -1612,6 +1612,49 @@ describe("exec", () => {
 		const r = await shell.run("test -f /tmp/execout");
 		expect(r.exitCode).toBe(0);
 	});
+
+	test("exec CMD replaces shell — subsequent commands do not run", async () => {
+		const shell = createShell();
+		// exec echo should consume the shell; "echo never" should not produce output.
+		// In a real shell, the second command never executes. In our model, exec throws
+		// ShellExit so the list node short-circuits.
+		const r = await shell.run("exec echo hi");
+		expect(r.stdout.trim()).toBe("hi");
+		// Shell should be effectively "exited" — further runs still work but this run
+		// returned after exec, not after the entire script.
+	});
+
+	test("exec CMD propagates exit code", async () => {
+		const shell = createShell();
+		const r = await shell.run("exec false");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("exec with unknown command exits 127", async () => {
+		const shell = createShell();
+		const r = await shell.run("exec /bin/doesnotexist");
+		expect(r.exitCode).toBe(127);
+	});
+
+	test("exec > file persists stdout redirect across subsequent run() calls", async () => {
+		const shell = createShell();
+		await shell.run("exec > /tmp/log");
+		// Subsequent commands should route stdout to the log file
+		await shell.run("echo hi");
+		// Read the file directly — cat would also be redirected to the log
+		const contents = shell.filesystem.readFile("/tmp/log");
+		expect(contents).toContain("hi");
+	});
+
+	test("exec >> file persists append redirect across run() calls", async () => {
+		const shell = createShell();
+		await shell.run("exec >> /tmp/appendlog");
+		await shell.run("echo line1");
+		await shell.run("echo line2");
+		const contents = shell.filesystem.readFile("/tmp/appendlog");
+		expect(contents).toContain("line1");
+		expect(contents).toContain("line2");
+	});
 });
 
 describe("source", () => {

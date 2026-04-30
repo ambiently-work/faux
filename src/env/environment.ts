@@ -11,6 +11,12 @@ const DEFAULT_VARS: Record<string, string> = {
 	IFS: " \t\n",
 };
 
+export interface PersistentFdOverride {
+	fd: number;
+	op: string;
+	target: string;
+}
+
 export class Environment {
 	private vars: Map<string, string>;
 	private exported: Set<string>;
@@ -25,6 +31,8 @@ export class Environment {
 	private _lastBgPid: number;
 	private _readonly: Set<string>;
 	private _startTime: number;
+	/** Persistent fd overrides set by `exec REDIRS` — inherited by every subsequent command. */
+	persistentFdOverrides: PersistentFdOverride[] = [];
 
 	constructor(initial?: Record<string, string>) {
 		this.vars = new Map();
@@ -185,6 +193,7 @@ export class Environment {
 		child._lastBgPid = this._lastBgPid;
 		child._readonly = new Set(this._readonly);
 		child._startTime = this._startTime;
+		child.persistentFdOverrides = [...this.persistentFdOverrides];
 
 		// Increment SHLVL
 		const shlvl = Number.parseInt(child.vars.get("SHLVL") ?? "1", 10);

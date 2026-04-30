@@ -115,7 +115,11 @@ export async function executeCommand(
 			2: stderrTarget,
 		};
 
-		for (const redirect of redirects) {
+		// Apply shell-level persistent fd overrides (set by `exec REDIRS`) before
+		// per-command redirects so each command inherits the shell's fd state.
+		const allRedirects = [...ctx.env.persistentFdOverrides, ...redirects];
+
+		for (const redirect of allRedirects) {
 			if (redirect.op === ">" || redirect.op === ">>") {
 				const fd = redirect.fd === -1 ? 1 : redirect.fd;
 				fdTable[fd] = {
@@ -209,7 +213,11 @@ export async function executeCommand(
 }
 
 export class ShellExit extends Error {
-	constructor(public code: number) {
+	constructor(
+		public code: number,
+		public stdout = "",
+		public stderr = "",
+	) {
 		super(`exit ${code}`);
 		this.name = "ShellExit";
 	}
