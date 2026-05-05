@@ -24,7 +24,7 @@ export interface ToolCall {
 export abstract class Tool<I = unknown, O = unknown> {
 	abstract readonly id: string;
 	abstract readonly description: string;
-	abstract readonly schema: z.ZodType<I, z.ZodTypeDef, unknown>;
+	abstract readonly schema: z.ZodType<I>;
 
 	abstract run(inputs: I): Promise<ToolResult<O>>;
 
