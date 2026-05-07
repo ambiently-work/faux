@@ -54,7 +54,7 @@
 		"wasm-demo": "bun run cli/wasm-demo.ts",
 		"docs": "bun run --cwd packages/docs dev",
 		"docs:build": "bun run --cwd packages/docs build",
-		"docs:check": "bunx --bun --cwd packages/docs astro check",
+		"docs:check": "bun --cwd packages/docs astro-check",
 		"build": "bun run build:wasm && bun run build:ts",
 		"build:wasm": "wasm-pack build --target web --out-dir pkg",
 		"build:ts": "tsc -b --force",

@@ -56,7 +56,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 			import { Terminal } from "@xterm/xterm";
 			import { FitAddon } from "@xterm/addon-fit";
 			import { WebLinksAddon } from "@xterm/addon-web-links";
-			import { Shell } from "@ambiently-work/faux";
+			import { Shell, type CommandContext } from "@ambiently-work/faux";
 
 			const RESET = "\x1b[0m";
 			const BOLD = "\x1b[1m";
@@ -67,6 +67,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 			const BLUE = "\x1b[34m";
 			const MAGENTA = "\x1b[35m";
 			const CYAN = "\x1b[36m";
+			const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 			const shell = new Shell({
 				user: "guest",
@@ -92,7 +93,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 			shell.register({
 				name: "help",
-				execute(ctx) {
+				execute(ctx: CommandContext) {
 					const w = (s: string) => ctx.stdout.writeln(s);
 					w(`${BOLD}faux${RESET} — virtual bash shell`);
 					w("");
@@ -121,16 +122,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 			shell.register({
 				name: "commands",
-				execute(ctx) {
+				execute(ctx: CommandContext) {
 					const cmds = shell.commands
-						.filter((c) => c !== "help" && c !== "commands")
+						.filter((c: string) => c !== "help" && c !== "commands")
 						.sort();
 					const colWidth = 12;
 					const cols = 6;
 					for (let i = 0; i < cmds.length; i += cols) {
 						const row = cmds
 							.slice(i, i + cols)
-							.map((c) => c.padEnd(colWidth))
+							.map((c: string) => c.padEnd(colWidth))
 							.join("");
 						ctx.stdout.writeln(row);
 					}
@@ -141,7 +142,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 			shell.register({
 				name: "about",
-				execute(ctx) {
+				execute(ctx: CommandContext) {
 					ctx.stdout.writeln(`${BOLD}faux${RESET}`);
 					ctx.stdout.writeln(
 						`${DIM}A POSIX-ish shell that runs entirely in-process.${RESET}`,
@@ -236,10 +237,6 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 			function continuationPrompt(): string {
 				return `${YELLOW}>${RESET} `;
-			}
-
-			function stripAnsi(s: string): string {
-				return s.replace(/\x1b\[[0-9;]*m/g, "");
 			}
 
 			function redraw(prompt: string) {
@@ -537,8 +534,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 					const prefix = before.slice(wordStart + 1);
 					if (prefix.length === 0) return;
 					const isFirstWord = wordStart < 0 || /^\s*$/.test(before.slice(0, wordStart + 1));
-					const pool = isFirstWord ? shell.commands : shell.commands;
-					const matches = pool.filter((c) => c.startsWith(prefix)).sort();
+					const pool: string[] = isFirstWord ? shell.commands : shell.commands;
+					const matches = pool.filter((c: string) => c.startsWith(prefix)).sort();
 					if (matches.length === 1) {
 						const completion = matches[0].slice(prefix.length) + " ";
 						currentLine =
