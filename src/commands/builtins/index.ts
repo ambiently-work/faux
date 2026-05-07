@@ -66,6 +66,7 @@ import { tac } from "./tac.js";
 import { tail } from "./tail.js";
 import { tee } from "./tee.js";
 import { bracket, doubleBracket, test } from "./test.js";
+import { timeCmd, timeout } from "./time-timeout.js";
 import { touch } from "./touch.js";
 import { tr } from "./tr.js";
 import { trap } from "./trap.js";
@@ -174,6 +175,8 @@ export const allBuiltins: CommandHandler[] = [
 	tail,
 	tee,
 	test,
+	timeCmd,
+	timeout,
 	times,
 	touch,
 	tr,

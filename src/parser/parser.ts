@@ -234,12 +234,6 @@ export class Parser {
 			negated = true;
 		}
 
-		// Check for time keyword
-		if (this.isKeyword("time")) {
-			this.next();
-			// TIME is treated as a prefix; parse rest as pipeline
-		}
-
 		const first = this.parseCommand();
 		const commands: AstNode[] = [first];
 		let pipeStderr = false;

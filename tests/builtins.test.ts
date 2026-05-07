@@ -2021,6 +2021,66 @@ describe("sleep", () => {
 	});
 });
 
+describe("time", () => {
+	test("prints elapsed wall time to stderr and preserves stdout", async () => {
+		const shell = createShell();
+		const r = await shell.run("time echo hi");
+		expect(r.stdout).toBe("hi\n");
+		expect(r.stderr).toMatch(/^real 0m\d+\.\d{3}s\nuser 0m0\.000s\nsys 0m0\.000s\n$/);
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("preserves command exit code", async () => {
+		const shell = createShell();
+		const r = await shell.run("time false");
+		expect(r.stderr).toContain("real ");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("supports POSIX -p output format", async () => {
+		const shell = createShell();
+		const r = await shell.run("time -p echo hi");
+		expect(r.stdout).toBe("hi\n");
+		expect(r.stderr).toMatch(/^real \d+\.\d{2}\nuser 0\.00\nsys 0\.00\n$/);
+		expect(r.exitCode).toBe(0);
+	});
+});
+
+describe("timeout", () => {
+	test("returns 124 when the command exceeds the duration", async () => {
+		const shell = createShell();
+		const startedAt = performance.now();
+		const r = await shell.run("timeout 0.05 sleep 1");
+		const elapsedMs = performance.now() - startedAt;
+		expect(r.stdout).toBe("");
+		expect(r.stderr).toBe("");
+		expect(r.exitCode).toBe(124);
+		expect(elapsedMs).toBeLessThan(500);
+	});
+
+	test("preserves successful command output and exit code", async () => {
+		const shell = createShell();
+		const r = await shell.run("timeout 5 echo hi");
+		expect(r.stdout).toBe("hi\n");
+		expect(r.stderr).toBe("");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("accepts duration suffixes and signal option", async () => {
+		const shell = createShell();
+		const r = await shell.run("timeout -s INT 1s echo hi");
+		expect(r.stdout).toBe("hi\n");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("reports invalid duration", async () => {
+		const shell = createShell();
+		const r = await shell.run("timeout nope echo hi");
+		expect(r.stderr).toBe("timeout: invalid time interval 'nope'\n");
+		expect(r.exitCode).toBe(125);
+	});
+});
+
 describe("yes", () => {
 	test("outputs repeated text", async () => {
 		const shell = createShell();
