@@ -1,6 +1,6 @@
 import type { IFileSystem } from "@ambiently-work/mirage";
 import type { CommandRegistry } from "./commands/registry.js";
-import type { CommandContext } from "./commands/types.js";
+import type { CommandContext, CommandTerminalContext } from "./commands/types.js";
 import type { Environment } from "./env/environment.js";
 import { ShellBreak, ShellContinue, ShellExit, ShellReturn } from "./executor/pipeline.js";
 import { WritableBuffer } from "./io/stream.js";
@@ -15,11 +15,21 @@ export class ShellBridge {
 	private env: Environment;
 	private fs: IFileSystem;
 	private registry: CommandRegistry;
+	private tty: CommandTerminalContext;
 
-	constructor(env: Environment, fs: IFileSystem, registry: CommandRegistry) {
+	constructor(
+		env: Environment,
+		fs: IFileSystem,
+		registry: CommandRegistry,
+		tty: CommandTerminalContext = {
+			isatty: { stdin: false, stdout: false, stderr: false },
+			term: { cols: 80, rows: 24, name: "dumb" },
+		},
+	) {
 		this.env = env;
 		this.fs = fs;
 		this.registry = registry;
+		this.tty = tty;
 	}
 
 	// ---- Environment ----
@@ -144,6 +154,8 @@ export class ShellBridge {
 			env: this.env,
 			fs: this.fs,
 			cwd: this.env.cwd,
+			isatty: this.tty.isatty,
+			term: this.tty.term,
 			stdout,
 			stderr,
 			resolve: resolvePath,
@@ -153,7 +165,7 @@ export class ShellBridge {
 				// but for simplicity we use the TS executor path here.
 				// This is fine because subExec is relatively rare.
 				const { Executor } = await import("./executor/executor.js");
-				const exec = new Executor(this.env, this.fs, this.registry);
+				const exec = new Executor(this.env, this.fs, this.registry, this.tty);
 				const result = await exec.execute(ast);
 				return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
 			},

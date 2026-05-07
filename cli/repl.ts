@@ -20,6 +20,14 @@ const shell = new Shell({
 		TERM: "xterm-256color",
 		PS1: "\\u@\\h:\\w\\$ ",
 	},
+	tty: {
+		stdin: Boolean(process.stdin.isTTY),
+		stdout: Boolean(process.stdout.isTTY),
+		stderr: Boolean(process.stderr.isTTY),
+		cols: process.stdout.columns ?? 80,
+		rows: process.stdout.rows ?? 24,
+		name: process.env.TERM ?? "xterm-256color",
+	},
 	fs: {
 		"/home/user/.bashrc": 'export PS1="\\u@\\h:\\w\\$ "\n',
 		"/home/user/README.md":

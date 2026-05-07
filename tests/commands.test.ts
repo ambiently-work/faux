@@ -20,6 +20,8 @@ function makeContext(args: string[]): {
 		env,
 		fs: undefined as never,
 		cwd: "/",
+		isatty: { stdin: false, stdout: false, stderr: false },
+		term: { cols: 80, rows: 24, name: "dumb" },
 		stdout,
 		stderr,
 		resolve: (p) => p,
