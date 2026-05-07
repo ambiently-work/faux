@@ -13,6 +13,10 @@ export interface CommandContext {
 	fs: IFileSystem;
 	/** Current working directory */
 	cwd: string;
+	/** Whether each standard stream is connected to a terminal */
+	isatty: CommandIsatty;
+	/** Terminal dimensions and type */
+	term: CommandTerm;
 	/** Write to stdout */
 	stdout: WritableBuffer;
 	/** Write to stderr */
@@ -32,4 +36,21 @@ export interface ShellSubExecResult {
 export interface CommandHandler {
 	name: string;
 	execute(ctx: CommandContext): number | Promise<number>;
+}
+
+export interface CommandIsatty {
+	stdin: boolean;
+	stdout: boolean;
+	stderr: boolean;
+}
+
+export interface CommandTerm {
+	cols: number;
+	rows: number;
+	name: string;
+}
+
+export interface CommandTerminalContext {
+	isatty: CommandIsatty;
+	term: CommandTerm;
 }

@@ -1,6 +1,6 @@
 import type { IFileSystem } from "@ambiently-work/mirage";
 import type { CommandRegistry } from "../commands/registry.js";
-import type { CommandContext } from "../commands/types.js";
+import type { CommandContext, CommandTerminalContext } from "../commands/types.js";
 import type { Environment } from "../env/environment.js";
 import { WritableBuffer } from "../io/stream.js";
 import { type AstNode, parse } from "../parser/index.js";
@@ -11,6 +11,7 @@ export interface ExecutorContext {
 	env: Environment;
 	fs: IFileSystem;
 	registry: CommandRegistry;
+	tty: CommandTerminalContext;
 	subExec: SubExecFn;
 	executeNode: (node: AstNode, stdin: string) => Promise<ShellResult>;
 }
@@ -23,10 +24,19 @@ export async function executePipeline(
 ): Promise<ShellResult> {
 	let currentStdin = stdin;
 	let lastResult: ShellResult = { stdout: "", stderr: "", exitCode: 0 };
+	const baseIsatty = { ...ctx.tty.isatty };
 
 	for (let i = 0; i < commands.length; i++) {
-		lastResult = await ctx.executeNode(commands[i], currentStdin);
-		currentStdin = lastResult.stdout;
+		ctx.tty.isatty.stdin = i === 0 ? baseIsatty.stdin : false;
+		ctx.tty.isatty.stdout = i === commands.length - 1 ? baseIsatty.stdout : false;
+		ctx.tty.isatty.stderr = baseIsatty.stderr;
+
+		try {
+			lastResult = await ctx.executeNode(commands[i], currentStdin);
+			currentStdin = lastResult.stdout;
+		} finally {
+			Object.assign(ctx.tty.isatty, baseIsatty);
+		}
 	}
 
 	if (negated) {
@@ -80,6 +90,8 @@ export async function executeCommand(
 		env: ctx.env,
 		fs: ctx.fs,
 		cwd: ctx.env.cwd,
+		isatty: ctx.tty.isatty,
+		term: ctx.tty.term,
 		stdout,
 		stderr,
 		resolve: resolvePath,
