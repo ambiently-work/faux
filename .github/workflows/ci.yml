@@ -486,7 +486,7 @@ jobs:
 
       - name: astro check
         working-directory: packages/docs
-        run: bunx astro check
+        run: bun run check
 
       - name: Build docs
         run: bun run docs:build

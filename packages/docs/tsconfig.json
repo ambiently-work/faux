@@ -1,5 +1,11 @@
 {
 	"extends": "astro/tsconfigs/strict",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@ambiently-work/faux": ["../../src/index.ts"]
+		}
+	},
 	"include": [".astro/types.d.ts", "src/**/*"],
 	"exclude": ["dist"]
 }
