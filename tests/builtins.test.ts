@@ -1991,6 +1991,49 @@ describe("du", () => {
 	});
 });
 
+describe("terminal builtins", () => {
+	test("tty reports stdin terminal state and pipeline stdin is not a tty", async () => {
+		const shell = new Shell({
+			tty: { stdin: true, stdout: true, stderr: true, cols: 80, rows: 24, name: "xterm" },
+		});
+		const r = await shell.run("tty; echo hi | tty");
+		expect(r.stdout).toBe("/dev/tty\nnot a tty\n");
+		expect(r.exitCode).toBe(1);
+	});
+
+	test("tput reads configured terminal dimensions", async () => {
+		const shell = new Shell({
+			tty: { stdout: true, cols: 100, rows: 40, name: "xterm-256color" },
+		});
+		const r = await shell.run("tput cols; tput lines; echo $COLUMNS:$LINES");
+		expect(r.stdout).toBe("100\n40\n100:40\n");
+		expect(r.exitCode).toBe(0);
+	});
+
+	test("clear and reset emit terminal control sequences", async () => {
+		const shell = createShell();
+		expect((await shell.run("clear")).stdout).toBe("\x1b[2J\x1b[H");
+		expect((await shell.run("reset")).stdout).toBe("\x1bc");
+	});
+
+	test("stty reads and updates terminal size", async () => {
+		const shell = new Shell({
+			tty: { stdin: true, stdout: true, cols: 80, rows: 24, name: "xterm" },
+		});
+		expect((await shell.run("stty size")).stdout).toBe("24 80\n");
+		const updated = await shell.run("stty cols 132 rows 43; stty size; echo $COLUMNS:$LINES");
+		expect(updated.stdout).toBe("43 132\n132:43\n");
+		expect(updated.exitCode).toBe(0);
+	});
+
+	test("tput emits common ansi capabilities", async () => {
+		const shell = createShell();
+		expect((await shell.run("tput cup 2 3")).stdout).toBe("\x1b[3;4H");
+		expect((await shell.run("tput bold")).stdout).toBe("\x1b[1m");
+		expect((await shell.run("tput setaf 2")).stdout).toBe("\x1b[32m");
+	});
+});
+
 // ═══════════════════════════════════════════════════════════════════
 // Batch 7: Job Control & Process (sleep, yes, getopts, umask, ulimit)
 // ═══════════════════════════════════════════════════════════════════

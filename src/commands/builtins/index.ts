@@ -65,6 +65,7 @@ import { strings } from "./strings.js";
 import { tac } from "./tac.js";
 import { tail } from "./tail.js";
 import { tee } from "./tee.js";
+import { clear, reset, stty, tput, tty } from "./terminal.js";
 import { bracket, doubleBracket, test } from "./test.js";
 import { touch } from "./touch.js";
 import { tr } from "./tr.js";
@@ -97,6 +98,7 @@ export const allBuiltins: CommandHandler[] = [
 	cat,
 	cd,
 	chmod,
+	clear,
 	column,
 	comm,
 	command,
@@ -157,6 +159,7 @@ export const allBuiltins: CommandHandler[] = [
 	realpath,
 	returnCmd,
 	rev,
+	reset,
 	rm,
 	sed,
 	seq,
@@ -169,6 +172,7 @@ export const allBuiltins: CommandHandler[] = [
 	source,
 	stat,
 	strings,
+	stty,
 	suspend,
 	tac,
 	tail,
@@ -180,7 +184,9 @@ export const allBuiltins: CommandHandler[] = [
 	trap,
 	tree,
 	trueCmd,
+	tput,
 	type,
+	tty,
 	ulimit,
 	umask,
 	unalias,

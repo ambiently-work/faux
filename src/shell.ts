@@ -1,7 +1,7 @@
 import { type IFileSystem, VirtualFileSystem } from "@ambiently-work/mirage";
 import { allBuiltins } from "./commands/builtins/index.js";
 import { CommandRegistry } from "./commands/registry.js";
-import type { CommandHandler } from "./commands/types.js";
+import type { CommandHandler, CommandTerminalContext } from "./commands/types.js";
 import { Environment } from "./env/environment.js";
 import { Executor } from "./executor/executor.js";
 import {
@@ -38,6 +38,8 @@ export interface ShellOptions {
 	tracking?: boolean;
 	/** Maximum number of commands to keep in history (default: 1000) */
 	maxHistory?: number;
+	/** Terminal/TTY metadata exposed to builtins (default: non-interactive 80x24 dumb terminal) */
+	tty?: ShellTtyOptions;
 	/**
 	 * Enable WASM-accelerated runtime.
 	 * - `true`: dynamically loads the bundled WASM runtime from this package
@@ -46,11 +48,21 @@ export interface ShellOptions {
 	wasm?: boolean | Partial<WasmRuntimeModule>;
 }
 
+export interface ShellTtyOptions {
+	stdin?: boolean;
+	stdout?: boolean;
+	stderr?: boolean;
+	cols?: number;
+	rows?: number;
+	name?: string;
+}
+
 export class Shell {
 	private env: Environment;
 	private vfs: VirtualFileSystem;
 	private registry: CommandRegistry;
 	private executor: Executor;
+	private tty: CommandTerminalContext;
 	private parseFn!: (input: string) => AstNode;
 	private hookRegistry: HookRegistry;
 	private commandTracker: CommandTracker | null;
@@ -65,6 +77,11 @@ export class Shell {
 
 		// Merge user shorthand into env
 		const env = { ...opts.env };
+		this.tty = createTerminalContext(opts.tty, env);
+		env.COLUMNS = String(this.tty.term.cols);
+		env.LINES = String(this.tty.term.rows);
+		env.TERM ??= this.tty.term.name;
+
 		if (opts.user) {
 			env.USER ??= opts.user;
 			env.HOME ??= `/home/${opts.user}`;
@@ -127,7 +144,7 @@ export class Shell {
 		}
 
 		this.parseFn ??= opts.parser ?? parse;
-		this.executor = new Executor(this.env, this.vfs, this.registry);
+		this.executor = new Executor(this.env, this.vfs, this.registry, this.tty);
 		this.hookRegistry = new HookRegistry();
 		this.commandTracker = opts.tracking ? new CommandTracker(opts.maxHistory) : null;
 	}
@@ -160,7 +177,7 @@ export class Shell {
 
 			if (this.wasmExecuteFn) {
 				// Use WASM executor with bridge
-				const bridge = new ShellBridge(this.env, this.vfs, this.registry);
+				const bridge = new ShellBridge(this.env, this.vfs, this.registry, this.tty);
 				const wasmResult = await this.wasmExecuteFn(ast, bridge, "");
 				result = wasmResult as ShellResult;
 			} else {
@@ -288,4 +305,29 @@ export class Shell {
 	snapshot(): Record<string, string> {
 		return this.vfs.snapshot();
 	}
+}
+
+function createTerminalContext(
+	options: ShellTtyOptions | undefined,
+	env: Record<string, string>,
+): CommandTerminalContext {
+	const cols = parsePositiveInt(options?.cols ?? env.COLUMNS, 80);
+	const rows = parsePositiveInt(options?.rows ?? env.LINES, 24);
+	return {
+		isatty: {
+			stdin: options?.stdin ?? false,
+			stdout: options?.stdout ?? false,
+			stderr: options?.stderr ?? false,
+		},
+		term: {
+			cols,
+			rows,
+			name: options?.name ?? env.TERM ?? "dumb",
+		},
+	};
+}
+
+function parsePositiveInt(value: string | number | undefined, fallback: number): number {
+	const parsed = typeof value === "number" ? value : Number.parseInt(value ?? "", 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

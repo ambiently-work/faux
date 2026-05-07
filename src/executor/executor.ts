@@ -1,5 +1,6 @@
 import type { IFileSystem } from "@ambiently-work/mirage";
 import type { CommandRegistry } from "../commands/registry.js";
+import type { CommandTerminalContext } from "../commands/types.js";
 import type { Environment } from "../env/environment.js";
 import {
 	type ArithmeticNode,
@@ -37,11 +38,18 @@ export class Executor {
 	private env: Environment;
 	private fs: IFileSystem;
 	private registry: CommandRegistry;
+	private tty: CommandTerminalContext;
 
-	constructor(env: Environment, fs: IFileSystem, registry: CommandRegistry) {
+	constructor(
+		env: Environment,
+		fs: IFileSystem,
+		registry: CommandRegistry,
+		tty: CommandTerminalContext = defaultTerminalContext(),
+	) {
 		this.env = env;
 		this.fs = fs;
 		this.registry = registry;
+		this.tty = tty;
 	}
 
 	async execute(node: AstNode, stdin = ""): Promise<ShellResult> {
@@ -117,6 +125,7 @@ export class Executor {
 				env: this.env,
 				fs: this.fs,
 				registry: this.registry,
+				tty: this.tty,
 				subExec: async (node: AstNode) => {
 					const result = await this.executeNode(node, "");
 					return { stdout: result.stdout, exitCode: result.exitCode };
@@ -320,7 +329,7 @@ export class Executor {
 
 	private async executeSubshellNode(node: SubshellNode, stdin: string): Promise<ShellResult> {
 		const childEnv = this.env.fork();
-		const childExec = new Executor(childEnv, this.fs, this.registry);
+		const childExec = new Executor(childEnv, this.fs, this.registry, this.tty);
 		return childExec.execute(node.body, stdin);
 	}
 
@@ -675,4 +684,11 @@ function matchGlobPattern(text: string, pattern: string): boolean {
 	}
 
 	return pi === pattern.length;
+}
+
+function defaultTerminalContext(): CommandTerminalContext {
+	return {
+		isatty: { stdin: false, stdout: false, stderr: false },
+		term: { cols: 80, rows: 24, name: "dumb" },
+	};
 }
