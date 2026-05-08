@@ -44,6 +44,7 @@ import { mapfile, readarray } from "./mapfile.js";
 import { arch, cal, md5sum, nproc, sha256sum, uptime } from "./misc.js";
 import { mkdir } from "./mkdir.js";
 import { mktemp } from "./mktemp.js";
+import { mount, umount } from "./mount.js";
 import { mv } from "./mv.js";
 import { nl } from "./nl.js";
 import { paste } from "./paste.js";
@@ -146,6 +147,7 @@ export const allBuiltins: CommandHandler[] = [
 	md5sum,
 	mkdir,
 	mktemp,
+	mount,
 	mv,
 	nl,
 	noop,
@@ -192,6 +194,7 @@ export const allBuiltins: CommandHandler[] = [
 	tty,
 	ulimit,
 	umask,
+	umount,
 	unalias,
 	uname,
 	unexpand,
