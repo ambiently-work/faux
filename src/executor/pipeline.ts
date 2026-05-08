@@ -14,6 +14,11 @@ export interface ExecutorContext {
 	tty: CommandTerminalContext;
 	subExec: SubExecFn;
 	executeNode: (node: AstNode, stdin: string) => Promise<ShellResult>;
+	/**
+	 * Run the given trap by name and return its captured output, or null when
+	 * no handler is registered. Used by the function-call path to fire RETURN.
+	 */
+	fireTrap?: (name: string) => Promise<{ stdout: string; stderr: string } | null>;
 }
 
 export async function executePipeline(
@@ -196,7 +201,14 @@ export async function executeCommand(
 			const oldArgs = ctx.env.positionalArgs;
 			ctx.env.positionalArgs = args;
 			try {
-				return await ctx.executeNode(func as AstNode, stdin);
+				const result = await ctx.executeNode(func as AstNode, stdin);
+				const ret = ctx.fireTrap ? await ctx.fireTrap("RETURN") : null;
+				if (!ret) return result;
+				return {
+					stdout: result.stdout + ret.stdout,
+					stderr: result.stderr + ret.stderr,
+					exitCode: result.exitCode,
+				};
 			} finally {
 				ctx.env.positionalArgs = oldArgs;
 			}
@@ -344,7 +356,11 @@ export async function executeCommand(
 		return { stdout: returnStdout, stderr: returnStderr, exitCode };
 	} catch (e) {
 		if (e instanceof ShellExit) {
-			return { stdout: stdout.toString(), stderr: stderr.toString(), exitCode: e.code };
+			// Re-throw with any captured output attached so the outer executor's
+			// catch (and any EXIT trap) gets a chance to run. Subshells and the
+			// top-level `Executor.execute` still convert this back into a
+			// `ShellResult` at the appropriate boundary.
+			throw new ShellExit(e.code, stdout.toString() + e.stdout, stderr.toString() + e.stderr);
 		}
 		if (e instanceof ShellReturn) {
 			return { stdout: stdout.toString(), stderr: stderr.toString(), exitCode: e.code };
