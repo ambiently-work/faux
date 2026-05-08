@@ -18,6 +18,7 @@ export {
 	type ParsedArgs,
 } from "./commands/builder.js";
 export { type BiomeInstance, createBiomeCommand } from "./commands/builtins/biome.js";
+export { createHistoryCommand } from "./commands/builtins/history.js";
 export { createNodeCommand, type NodeCommandOptions } from "./commands/builtins/node.js";
 export {
 	createTreeSitterCommand,

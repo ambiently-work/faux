@@ -113,8 +113,42 @@ function buildPrompt(): string {
 	return `${BOLD}${GREEN}${user}@${host}${RESET}:${BOLD}${BLUE}${displayCwd}${RESET}${indicator} `;
 }
 
+async function loadHistoryFromDisk(): Promise<void> {
+	const histfile = process.env.FAUX_HISTFILE ?? `${process.env.HOME ?? ""}/.faux_history`;
+	if (!histfile) return;
+	try {
+		const content = await Bun.file(histfile).text();
+		const lines = content.split(/\r?\n/).filter((l) => l.length > 0);
+		const tracker = shell.tracker;
+		if (!tracker) return;
+		for (const line of lines) tracker.recordCommand(line);
+	} catch {
+		// File doesn't exist yet — first run.
+	}
+}
+
+async function persistHistoryToDisk(): Promise<void> {
+	const histfile = process.env.FAUX_HISTFILE ?? `${process.env.HOME ?? ""}/.faux_history`;
+	if (!histfile) return;
+	const tracker = shell.tracker;
+	if (!tracker) return;
+	const content = `${tracker.history.map((e) => e.command).join("\n")}\n`;
+	try {
+		await Bun.write(histfile, content);
+	} catch {
+		// Best-effort — don't crash on close.
+	}
+}
+
 async function main() {
 	const writer = Bun.stdout.writer();
+	await loadHistoryFromDisk();
+	process.on("exit", () => {
+		void persistHistoryToDisk();
+	});
+	process.on("SIGINT", () => {
+		void persistHistoryToDisk().then(() => process.exit(130));
+	});
 
 	// Print MOTD
 	writer.write(`\n${BOLD}${CYAN}  ╭─────────────────────────────────────╮${RESET}\n`);
@@ -146,6 +180,7 @@ async function main() {
 		if (done) {
 			writer.write("\n");
 			writer.flush();
+			await persistHistoryToDisk();
 			break;
 		}
 
@@ -181,6 +216,7 @@ async function main() {
 				const code = trimmed === "exit" ? 0 : Number.parseInt(trimmed.slice(5).trim(), 10) || 0;
 				writer.write(`${DIM}bye${RESET}\n`);
 				writer.flush();
+				await persistHistoryToDisk();
 				process.exit(code);
 			}
 
