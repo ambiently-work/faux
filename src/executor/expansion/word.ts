@@ -2,7 +2,7 @@ import type { IFileSystem } from "@ambiently-work/mirage";
 import type { Environment } from "../../env/environment.js";
 import type { AstNode, Word, WordPart } from "../../parser/index.js";
 import { evaluateArithmetic } from "./arithmetic.js";
-import { expandVariable, expandVariableOp } from "./parameter.js";
+import { expandVariable, expandVariableOp, UnboundVariableError } from "./parameter.js";
 
 export type SubExecFn = (node: AstNode) => Promise<{ stdout: string; exitCode: number }>;
 
@@ -63,8 +63,14 @@ async function expandPart(
 			return expandVariableOp(part.name, part.op, part.arg, env, fs, subExec);
 
 		case "variableLength": {
-			const val = env.get(part.name) ?? env.getSpecial(part.name) ?? "";
-			return val.length.toString();
+			const value = env.get(part.name) ?? env.getSpecial(part.name);
+			if (value === undefined) {
+				if (env.hasOption("nounset")) {
+					throw new UnboundVariableError(part.name);
+				}
+				return "0";
+			}
+			return value.length.toString();
 		}
 
 		case "commandSubstitution": {

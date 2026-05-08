@@ -23,6 +23,7 @@ import {
 } from "../parser/index.js";
 import type { ShellResult } from "../types.js";
 import { evaluateArithmetic, expandGlob, expandWord } from "./expansion/index.js";
+import { UnboundVariableError } from "./expansion/parameter.js";
 import {
 	type ExecutorContext,
 	executeCommand,
@@ -39,6 +40,14 @@ export class Executor {
 	private fs: IFileSystem;
 	private registry: CommandRegistry;
 	private tty: CommandTerminalContext;
+	/**
+	 * Counts how deep we are inside a context that suppresses `set -e`. A
+	 * non-zero depth means we're evaluating a "test" position — `if`/`while`/
+	 * `until` condition, the non-final operand of `&&`/`||`, or the body of a
+	 * `!`-negated pipeline. POSIX exempts these from errexit so that flow control
+	 * keeps working with `-e` set.
+	 */
+	private errexitSuppressDepth: number = 0;
 
 	constructor(
 		env: Environment,
@@ -78,8 +87,33 @@ export class Executor {
 					exitCode: 1,
 				};
 			}
+			if (e instanceof UnboundVariableError) {
+				this.env.lastExitCode = 1;
+				return { stdout: "", stderr: `${e.message}\n`, exitCode: 1 };
+			}
 			throw e;
 		}
+	}
+
+	/**
+	 * Run `fn` with `set -e` suppressed — used to evaluate condition expressions
+	 * (if/while/until/the test side of `&&`/`||`) where bash exempts a failing
+	 * command from triggering errexit. Always restores depth in `finally`.
+	 */
+	private async withErrexitSuppressed<T>(fn: () => Promise<T>): Promise<T> {
+		this.errexitSuppressDepth++;
+		try {
+			return await fn();
+		} finally {
+			this.errexitSuppressDepth--;
+		}
+	}
+
+	private maybeFireErrexit(result: ShellResult): void {
+		if (result.exitCode === 0) return;
+		if (this.errexitSuppressDepth > 0) return;
+		if (!this.env.hasOption("errexit")) return;
+		throw new ShellExit(result.exitCode, "", "");
 	}
 
 	private async executeNode(node: AstNode, stdin: string): Promise<ShellResult> {
@@ -263,16 +297,32 @@ export class Executor {
 		}
 
 		this.env.lastExitCode = result.exitCode;
+		this.maybeFireErrexit(result);
 		return result;
 	}
 
 	private async executePipelineNode(node: PipelineNode, stdin: string): Promise<ShellResult> {
 		const ctx = this.getExecCtx();
-		return executePipeline(node.commands, node.negated, stdin, ctx);
+		// Negated pipelines (`! cmd`) are exempt from errexit even if the inner
+		// pipeline exit is non-zero after flipping. Suppress while running so the
+		// per-command checks inside also stay quiet.
+		const result = node.negated
+			? await this.withErrexitSuppressed(() =>
+					executePipeline(node.commands, node.negated, stdin, ctx),
+				)
+			: await executePipeline(node.commands, node.negated, stdin, ctx);
+		this.env.lastExitCode = result.exitCode;
+		this.maybeFireErrexit(result);
+		return result;
 	}
 
 	private async executeListNode(node: ListNode, stdin: string): Promise<ShellResult> {
-		const leftResult = await this.executeNode(node.left, stdin);
+		// `cmd1 && cmd2` and `cmd1 || cmd2` exempt the left operand from errexit
+		// because its exit code is being explicitly tested by the operator.
+		const leftSuppressed = node.operator === "&&" || node.operator === "||";
+		const leftResult = leftSuppressed
+			? await this.withErrexitSuppressed(() => this.executeNode(node.left, stdin))
+			: await this.executeNode(node.left, stdin);
 
 		const combine = (right: ShellResult): ShellResult => ({
 			stdout: leftResult.stdout + right.stdout,
@@ -358,7 +408,10 @@ export class Executor {
 		let allStderr = "";
 
 		for (const clause of node.clauses) {
-			const condResult = await this.executeNode(clause.condition, stdin);
+			// `if`/`elif` conditions are POSIX-exempt from errexit.
+			const condResult = await this.withErrexitSuppressed(() =>
+				this.executeNode(clause.condition, stdin),
+			);
 			allStdout += condResult.stdout;
 			allStderr += condResult.stderr;
 			if (condResult.exitCode === 0) {
@@ -444,7 +497,10 @@ export class Executor {
 		const maxIterations = 100000;
 
 		while (iterations < maxIterations) {
-			const condResult = await this.executeNode(node.condition, stdin);
+			// `while` condition is exempt from errexit.
+			const condResult = await this.withErrexitSuppressed(() =>
+				this.executeNode(node.condition, stdin),
+			);
 			if (condResult.stdout) stdoutParts.push(condResult.stdout);
 			if (condResult.stderr) stderrParts.push(condResult.stderr);
 			if (condResult.exitCode !== 0) break;
@@ -493,7 +549,10 @@ export class Executor {
 		const maxIterations = 100000;
 
 		while (iterations < maxIterations) {
-			const condResult = await this.executeNode(node.condition, stdin);
+			// `until` condition is exempt from errexit.
+			const condResult = await this.withErrexitSuppressed(() =>
+				this.executeNode(node.condition, stdin),
+			);
 			if (condResult.stdout) stdoutParts.push(condResult.stdout);
 			if (condResult.stderr) stderrParts.push(condResult.stderr);
 			if (condResult.exitCode === 0) break;
