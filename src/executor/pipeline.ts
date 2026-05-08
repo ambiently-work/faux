@@ -24,6 +24,7 @@ export async function executePipeline(
 ): Promise<ShellResult> {
 	let currentStdin = stdin;
 	let lastResult: ShellResult = { stdout: "", stderr: "", exitCode: 0 };
+	const exitCodes: number[] = [];
 	const baseIsatty = { ...ctx.tty.isatty };
 
 	for (let i = 0; i < commands.length; i++) {
@@ -34,8 +35,21 @@ export async function executePipeline(
 		try {
 			lastResult = await ctx.executeNode(commands[i], currentStdin);
 			currentStdin = lastResult.stdout;
+			exitCodes.push(lastResult.exitCode);
 		} finally {
 			Object.assign(ctx.tty.isatty, baseIsatty);
+		}
+	}
+
+	// Pipefail: return the rightmost non-zero exit code instead of just the last
+	// stage's. Off by default; controlled by `set -o pipefail`.
+	if (ctx.env.hasOption("pipefail")) {
+		for (let i = exitCodes.length - 1; i >= 0; i--) {
+			const code = exitCodes[i];
+			if (code !== undefined && code !== 0) {
+				lastResult = { ...lastResult, exitCode: code };
+				break;
+			}
 		}
 	}
 

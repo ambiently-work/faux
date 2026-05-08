@@ -4,12 +4,26 @@ import type { Word } from "../../parser/index.js";
 import { globToRegex } from "./glob.js";
 import { expandWord, type SubExecFn } from "./word.js";
 
+export class UnboundVariableError extends Error {
+	constructor(public readonly varName: string) {
+		super(`${varName}: unbound variable`);
+		this.name = "UnboundVariableError";
+	}
+}
+
 export function expandVariable(name: string, env: Environment): string {
-	// Special variables
+	// Special variables (e.g. $?, $#, $@) are always considered set.
 	const special = env.getSpecial(name);
 	if (special !== undefined) return special;
 
-	return env.get(name) ?? "";
+	const value = env.get(name);
+	if (value === undefined) {
+		if (env.hasOption("nounset")) {
+			throw new UnboundVariableError(name);
+		}
+		return "";
+	}
+	return value;
 }
 
 export async function expandVariableOp(
@@ -53,28 +67,34 @@ export async function expandVariableOp(
 			if (val !== undefined) return val;
 			throw new Error(`${name}: ${(await argStr()) || "parameter not set"}`);
 		case "#": // remove shortest prefix
-			return removePrefix(val ?? "", await argStr(), false);
+			return removePrefix(coerceMaybeUnset(val, name, env), await argStr(), false);
 		case "##": // remove longest prefix
-			return removePrefix(val ?? "", await argStr(), true);
+			return removePrefix(coerceMaybeUnset(val, name, env), await argStr(), true);
 		case "%": // remove shortest suffix
-			return removeSuffix(val ?? "", await argStr(), false);
+			return removeSuffix(coerceMaybeUnset(val, name, env), await argStr(), false);
 		case "%%": // remove longest suffix
-			return removeSuffix(val ?? "", await argStr(), true);
+			return removeSuffix(coerceMaybeUnset(val, name, env), await argStr(), true);
 		case "/": // replace first
-			return replacePattern(val ?? "", await argStr(), false);
+			return replacePattern(coerceMaybeUnset(val, name, env), await argStr(), false);
 		case "//": // replace all
-			return replacePattern(val ?? "", await argStr(), true);
+			return replacePattern(coerceMaybeUnset(val, name, env), await argStr(), true);
 		case "^": // uppercase first char
-			return (val ?? "").replace(/^./, (c) => c.toUpperCase());
+			return coerceMaybeUnset(val, name, env).replace(/^./, (c) => c.toUpperCase());
 		case "^^": // uppercase all
-			return (val ?? "").toUpperCase();
+			return coerceMaybeUnset(val, name, env).toUpperCase();
 		case ",": // lowercase first char
-			return (val ?? "").replace(/^./, (c) => c.toLowerCase());
+			return coerceMaybeUnset(val, name, env).replace(/^./, (c) => c.toLowerCase());
 		case ",,": // lowercase all
-			return (val ?? "").toLowerCase();
+			return coerceMaybeUnset(val, name, env).toLowerCase();
 		default:
-			return val ?? "";
+			return coerceMaybeUnset(val, name, env);
 	}
+}
+
+function coerceMaybeUnset(val: string | undefined, name: string, env: Environment): string {
+	if (val !== undefined) return val;
+	if (env.hasOption("nounset")) throw new UnboundVariableError(name);
+	return "";
 }
 
 function removePrefix(val: string, pattern: string, greedy: boolean): string {
