@@ -22,7 +22,12 @@ import {
 	type Word,
 } from "../parser/index.js";
 import type { ShellResult } from "../types.js";
-import { evaluateArithmetic, expandGlob, expandWord } from "./expansion/index.js";
+import {
+	evaluateArithmetic,
+	expandGlob,
+	expandWord,
+	expandWordToFields,
+} from "./expansion/index.js";
 import { UnboundVariableError } from "./expansion/parameter.js";
 import {
 	type ExecutorContext,
@@ -177,6 +182,13 @@ export class Executor {
 		return `${cwd}/${p}`;
 	}
 
+	private async expandWordToFieldsList(word: Word): Promise<string[]> {
+		return expandWordToFields(word, this.env, this.fs, async (node) => {
+			const r = await this.executeNode(node, "");
+			return { stdout: r.stdout, exitCode: r.exitCode };
+		});
+	}
+
 	private async expandWordStr(word: Word): Promise<string> {
 		return expandWord(word, this.env, this.fs, async (node) => {
 			const r = await this.executeNode(node, "");
@@ -227,13 +239,15 @@ export class Executor {
 			return result;
 		}
 
-		// Expand arguments
+		// Expand arguments — each word is split on IFS where unquoted, then each
+		// resulting field is glob-expanded.
 		const expandedArgs: string[] = [];
 		for (const arg of node.args) {
-			const expanded = await this.expandWordStr(arg);
-			// Glob expansion
-			const globbed = expandGlob(expanded, this.fs, this.env.cwd);
-			expandedArgs.push(...globbed);
+			const fields = await this.expandWordToFieldsList(arg);
+			for (const field of fields) {
+				const globbed = expandGlob(field, this.fs, this.env.cwd);
+				expandedArgs.push(...globbed);
+			}
 		}
 
 		// Resolve redirects
@@ -442,9 +456,11 @@ export class Executor {
 		if (node.words) {
 			words = [];
 			for (const w of node.words) {
-				const expanded = await this.expandWordStr(w);
-				const globbed = expandGlob(expanded, this.fs, this.env.cwd);
-				words.push(...globbed);
+				const fields = await this.expandWordToFieldsList(w);
+				for (const field of fields) {
+					const globbed = expandGlob(field, this.fs, this.env.cwd);
+					words.push(...globbed);
+				}
 			}
 		} else {
 			words = this.env.positionalArgs;

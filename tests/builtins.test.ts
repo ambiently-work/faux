@@ -2733,9 +2733,10 @@ describe("mapfile/readarray", () => {
 		const shell = createShell();
 		await shell.run('printf "a\\nb\\nc\\n" | mapfile ARR');
 		// Without -t, each entry retains its trailing newline; echo adds another.
-		const r0 = await shell.run("echo $ARR_0");
+		// Quote the variable so IFS splitting doesn't eat the trailing newline.
+		const r0 = await shell.run('echo "$ARR_0"');
 		expect(r0.stdout).toBe("a\n\n");
-		const r2 = await shell.run("echo $ARR_2");
+		const r2 = await shell.run('echo "$ARR_2"');
 		expect(r2.stdout).toBe("c\n\n");
 	});
 
