@@ -18,6 +18,26 @@ export class CommandTracker {
 		}
 	}
 
+	/**
+	 * Record a command from a history file or other source where only the command
+	 * text is known — synthesizes a zero-result execution record so listings still
+	 * show the entry.
+	 */
+	recordCommand(command: string, cwd = "/"): void {
+		this.record({
+			command,
+			result: { stdout: "", stderr: "", exitCode: 0 },
+			durationMs: 0,
+			startedAt: 0,
+			cwd,
+		});
+	}
+
+	/** Replace the entire history (used by `history -d` to delete by index). */
+	replaceHistory(entries: CommandExecution[]): void {
+		this._history = entries.slice(-this._maxHistory);
+	}
+
 	/** All recorded executions */
 	get history(): readonly CommandExecution[] {
 		return this._history;
