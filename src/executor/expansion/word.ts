@@ -197,6 +197,15 @@ function splitByIfs(segments: Segment[], ifs: string): string[] {
 	return fields;
 }
 
+function ensureParentDir(fs: IFileSystem, path: string): void {
+	const idx = path.lastIndexOf("/");
+	if (idx <= 0) return;
+	const dir = path.slice(0, idx);
+	if (!fs.exists(dir)) {
+		fs.mkdir(dir, { recursive: true });
+	}
+}
+
 async function expandPart(
 	part: WordPart,
 	env: Environment,
@@ -244,9 +253,36 @@ async function expandPart(
 		case "arithmeticExpansion":
 			return evaluateArithmetic(part.expression, env).toString();
 
-		case "processSubstitution":
-			// Process substitution creates a temp file in VFS
-			return "/dev/fd/63"; // simplified
+		case "processSubstitution": {
+			if (part.direction === "in") {
+				// Materialize <(cmd) by running cmd, capturing stdout, and writing
+				// it to a freshly-allocated VFS temp path. The executor cleans the
+				// path up after the surrounding command finishes.
+				const result = await subExec(part.body);
+				const path = env.allocProcSubPath();
+				try {
+					ensureParentDir(fs, path);
+					fs.writeFile(path, result.stdout);
+					env.pendingProcSubFiles.push(path);
+				} catch {
+					// Best-effort — fall through to the placeholder if the FS rejects
+					// the write so the consuming command at least sees a path.
+				}
+				return path;
+			}
+			// Output process substitution `>(cmd)` — synthesizing a write-trigger
+			// sink isn't supported yet; emit a placeholder path that exists so
+			// downstream commands at least don't crash on missing files.
+			const path = env.allocProcSubPath();
+			try {
+				ensureParentDir(fs, path);
+				fs.writeFile(path, "");
+				env.pendingProcSubFiles.push(path);
+			} catch {
+				// ignore
+			}
+			return path;
+		}
 
 		case "glob":
 			return part.pattern; // Glob expansion happens at command level
