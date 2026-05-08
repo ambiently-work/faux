@@ -54,6 +54,13 @@ export class Executor {
 	 */
 	private errexitSuppressDepth: number = 0;
 
+	/**
+	 * Set while the executor is running a trap handler — used to suppress
+	 * recursive trap dispatch so DEBUG/ERR firing inside the handler doesn't
+	 * loop back into itself.
+	 */
+	private inTrapHandler: boolean = false;
+
 	constructor(
 		env: Environment,
 		fs: IFileSystem,
@@ -73,7 +80,12 @@ export class Executor {
 			return result;
 		} catch (e) {
 			if (e instanceof ShellExit) {
-				return { stdout: e.stdout, stderr: e.stderr, exitCode: e.code };
+				const exitTrap = await this.fireTrap("EXIT").catch(() => null);
+				return {
+					stdout: e.stdout + (exitTrap?.stdout ?? ""),
+					stderr: e.stderr + (exitTrap?.stderr ?? ""),
+					exitCode: e.code,
+				};
 			}
 			if (e instanceof ShellReturn) {
 				return { stdout: "", stderr: "", exitCode: e.code };
@@ -119,6 +131,41 @@ export class Executor {
 		if (this.errexitSuppressDepth > 0) return;
 		if (!this.env.hasOption("errexit")) return;
 		throw new ShellExit(result.exitCode, "", "");
+	}
+
+	/**
+	 * Look up `name` in the trap table stored at `\$_TRAPS` and run its handler
+	 * if present. Returns the handler's stdout/stderr (concatenated to the
+	 * caller) so EXIT/ERR/DEBUG output reaches the user. Errors inside the
+	 * handler that aren't `ShellExit` are swallowed — bash's behavior — so a
+	 * broken trap doesn't take down unrelated cleanup.
+	 */
+	private async fireTrap(name: string): Promise<{ stdout: string; stderr: string } | null> {
+		if (this.inTrapHandler) return null;
+		const trapsStr = this.env.get("_TRAPS") ?? "";
+		if (!trapsStr) return null;
+		let traps: Record<string, string>;
+		try {
+			traps = JSON.parse(trapsStr) as Record<string, string>;
+		} catch {
+			return null;
+		}
+		const handler = traps[name];
+		if (!handler) return null;
+
+		this.inTrapHandler = true;
+		try {
+			const ast = parse(handler);
+			const result = await this.executeNode(ast, "");
+			return { stdout: result.stdout, stderr: result.stderr };
+		} catch (e) {
+			// `exit` inside an EXIT trap is rare but legal — let it propagate so the
+			// outer execute() can still surface the right exit code.
+			if (e instanceof ShellExit) throw e;
+			return null;
+		} finally {
+			this.inTrapHandler = false;
+		}
 	}
 
 	private async executeNode(node: AstNode, stdin: string): Promise<ShellResult> {
@@ -170,6 +217,7 @@ export class Executor {
 					return { stdout: result.stdout, exitCode: result.exitCode };
 				},
 				executeNode: (node: AstNode, stdin: string) => this.executeNode(node, stdin),
+				fireTrap: (name: string) => this.fireTrap(name),
 			};
 		}
 		return this._execCtx;
@@ -198,6 +246,10 @@ export class Executor {
 
 	private async executeCommandNode(node: CommandNode, stdin: string): Promise<ShellResult> {
 		const ctx = this.getExecCtx();
+
+		// DEBUG trap fires before each simple command (skipping when we're already
+		// in a trap handler to avoid loops).
+		const debugOutput = await this.fireTrap("DEBUG");
 
 		// Handle prefix assignments
 		const savedVars: Array<{ name: string; value: string | undefined }> = [];
@@ -299,7 +351,13 @@ export class Executor {
 			throw new ShellExit(execResult.exitCode, execResult.stdout, execResult.stderr);
 		}
 
-		const result = await executeCommand(name, expandedArgs, effectiveStdin, outputRedirects, ctx);
+		const cmdResult = await executeCommand(
+			name,
+			expandedArgs,
+			effectiveStdin,
+			outputRedirects,
+			ctx,
+		);
 
 		// Restore temp vars
 		for (const { name, value } of savedVars) {
@@ -310,7 +368,21 @@ export class Executor {
 			}
 		}
 
-		this.env.lastExitCode = result.exitCode;
+		this.env.lastExitCode = cmdResult.exitCode;
+
+		// ERR trap fires whenever a command returns non-zero (with the same
+		// exemptions as errexit). Independent of `set -e`.
+		let errOutput: { stdout: string; stderr: string } | null = null;
+		if (cmdResult.exitCode !== 0 && this.errexitSuppressDepth === 0) {
+			errOutput = await this.fireTrap("ERR");
+		}
+
+		const result: ShellResult = {
+			stdout: (debugOutput?.stdout ?? "") + cmdResult.stdout + (errOutput?.stdout ?? ""),
+			stderr: (debugOutput?.stderr ?? "") + cmdResult.stderr + (errOutput?.stderr ?? ""),
+			exitCode: cmdResult.exitCode,
+		};
+
 		this.maybeFireErrexit(result);
 		return result;
 	}
@@ -361,6 +433,12 @@ export class Executor {
 						leftResult.stdout + e.stdout,
 						leftResult.stderr + e.stderr,
 					);
+				}
+				if (e instanceof ShellExit) {
+					// Preserve any output already produced by the left side so trap
+					// handlers and prior commands aren't dropped when the right side
+					// calls `exit`.
+					throw new ShellExit(e.code, leftResult.stdout + e.stdout, leftResult.stderr + e.stderr);
 				}
 				throw e;
 			}
