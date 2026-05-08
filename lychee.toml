@@ -13,7 +13,7 @@ exclude = [
     "^https?://127\\.0\\.0\\.1",
     "^https?://0\\.0\\.0\\.0",
     "^https?://(?:[A-Za-z0-9-]+\\.)?ambiently-work\\.dev",
-    "^https?://github\\.com/.*/(?:issues|pulls|pull|commits|commit|releases/tag)/",
+    "^https?://github\\.com/.*/(?:issues|pulls|pull|commits|commit|compare|releases/tag)/",
     "^https?://twitter\\.com",
     "^https?://x\\.com",
     # README references a planned monorepo split that doesn't exist yet.
