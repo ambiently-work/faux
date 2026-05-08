@@ -1,9 +1,11 @@
 import { type IFileSystem, VirtualFileSystem } from "@ambiently-work/mirage";
+import { createHistoryCommand } from "./commands/builtins/history.js";
 import { allBuiltins } from "./commands/builtins/index.js";
 import { CommandRegistry } from "./commands/registry.js";
 import type { CommandHandler, CommandTerminalContext } from "./commands/types.js";
 import { Environment } from "./env/environment.js";
 import { Executor } from "./executor/executor.js";
+import { expandHistory } from "./history-expand.js";
 import {
 	type AfterHook,
 	type BeforeHook,
@@ -168,12 +170,32 @@ export class Shell {
 		this.parseFn ??= opts.parser ?? parse;
 		this.executor = new Executor(this.env, this.vfs, this.registry, this.tty);
 		this.hookRegistry = new HookRegistry();
-		this.commandTracker = opts.tracking ? new CommandTracker(opts.maxHistory) : null;
 
 		this.interactive = opts.interactive ?? false;
 		this.login = opts.login ?? false;
 		this.skipStartupFiles = opts.skipStartupFiles ?? false;
 		this.startupFilesLoaded = false;
+
+		// Interactive shells auto-enable tracking so `history` has data to show.
+		const trackingEnabled = opts.tracking ?? this.interactive;
+		const histsizeOverride = parseHistsize(this.env.get("HISTSIZE"));
+		const maxHistory = opts.maxHistory ?? histsizeOverride ?? 500;
+		this.commandTracker = trackingEnabled ? new CommandTracker(maxHistory) : null;
+
+		// Seed defaults bash provides for interactive shells.
+		if (this.interactive) {
+			if (!this.env.get("HISTFILE")) {
+				const home = this.env.get("HOME") ?? "/root";
+				this.env.set("HISTFILE", `${home}/.bash_history`);
+			}
+			if (!this.env.get("HISTSIZE")) {
+				this.env.set("HISTSIZE", String(maxHistory));
+			}
+		}
+
+		if (opts.builtins !== false) {
+			this.registry.register(createHistoryCommand(() => this.commandTracker));
+		}
 	}
 
 	// --- Execution ---
@@ -193,6 +215,16 @@ export class Shell {
 
 		if (command.trim() === "") {
 			return { stdout: "", stderr: "", exitCode: 0 };
+		}
+
+		// History expansion (set -H) runs before parsing so `!!` and friends become
+		// the literal text from a previous entry.
+		if (this.env.hasOption("histexpand") && this.commandTracker) {
+			const expanded = expandHistory(command, this.commandTracker);
+			if (expanded === null) {
+				return { stdout: "", stderr: `${command}: event not found\n`, exitCode: 1 };
+			}
+			command = expanded;
 		}
 
 		// Run before hooks
@@ -432,4 +464,11 @@ function expandHome(path: string, home: string): string {
 	if (path === "~") return home;
 	if (path.startsWith("~/")) return `${home}${path.slice(1)}`;
 	return path;
+}
+
+function parseHistsize(value: string | undefined): number | undefined {
+	if (!value) return undefined;
+	const n = Number.parseInt(value, 10);
+	if (!Number.isFinite(n) || n <= 0) return undefined;
+	return n;
 }
