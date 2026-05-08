@@ -352,6 +352,28 @@ export class Tokenizer {
 				continue;
 			}
 
+			// Process substitution `<(...)` / `>(...)` is a single word part. When
+			// readWord encounters one, slurp the entire balanced run so the parser
+			// later sees a single WORD token containing the full construct.
+			if ((c === "<" || c === ">") && this.lookahead(1) === "(") {
+				word += this.advance(); // < or >
+				word += this.advance(); // (
+				let depth = 1;
+				while (this.pos < this.input.length && depth > 0) {
+					const inner = this.ch();
+					if (inner === "(") depth++;
+					else if (inner === ")") {
+						depth--;
+						if (depth === 0) {
+							word += this.advance();
+							break;
+						}
+					}
+					word += this.advance();
+				}
+				continue;
+			}
+
 			if (isMetaChar(c)) {
 				break;
 			}

@@ -61,6 +61,14 @@ export class Executor {
 	 */
 	private inTrapHandler: boolean = false;
 
+	/**
+	 * Tracks how many nested simple commands are currently in flight. Process-
+	 * substitution cleanup only fires when the outermost command finishes so
+	 * that files materialized for the outer call don't get yanked while an
+	 * inner `subExec` is mid-flight.
+	 */
+	private commandDepth: number = 0;
+
 	constructor(
 		env: Environment,
 		fs: IFileSystem,
@@ -123,6 +131,19 @@ export class Executor {
 			return await fn();
 		} finally {
 			this.errexitSuppressDepth--;
+		}
+	}
+
+	private cleanupProcSubFiles(): void {
+		const paths = this.env.pendingProcSubFiles;
+		if (paths.length === 0) return;
+		this.env.pendingProcSubFiles = [];
+		for (const path of paths) {
+			try {
+				this.fs.rm(path, { force: true });
+			} catch {
+				// best effort — adapter may not support rm on synthetic paths
+			}
 		}
 	}
 
@@ -245,6 +266,18 @@ export class Executor {
 	}
 
 	private async executeCommandNode(node: CommandNode, stdin: string): Promise<ShellResult> {
+		this.commandDepth++;
+		try {
+			return await this.executeCommandNodeInner(node, stdin);
+		} finally {
+			this.commandDepth--;
+			if (this.commandDepth === 0) {
+				this.cleanupProcSubFiles();
+			}
+		}
+	}
+
+	private async executeCommandNodeInner(node: CommandNode, stdin: string): Promise<ShellResult> {
 		const ctx = this.getExecCtx();
 
 		// DEBUG trap fires before each simple command (skipping when we're already

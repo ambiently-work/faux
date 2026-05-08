@@ -33,6 +33,19 @@ export class Environment {
 	private _startTime: number;
 	/** Persistent fd overrides set by `exec REDIRS` — inherited by every subsequent command. */
 	persistentFdOverrides: PersistentFdOverride[] = [];
+	/**
+	 * Temp files created by `<(cmd)` process substitution while expanding the
+	 * current command's arguments. The executor drains this list after the
+	 * command finishes so the materialized paths don't leak.
+	 */
+	pendingProcSubFiles: string[] = [];
+	private _procSubCounter: number = 0;
+
+	/** Allocate a unique temp path for a `<(cmd)` materialization. */
+	allocProcSubPath(): string {
+		this._procSubCounter += 1;
+		return `/tmp/fauxps.${this._pid}.${this._procSubCounter}`;
+	}
 
 	constructor(initial?: Record<string, string>) {
 		this.vars = new Map();
