@@ -14,6 +14,7 @@ import {
 	HookRegistry,
 	type OutputTransform,
 } from "./hooks.js";
+import { parseUmaskEnv, UmaskFileSystem } from "./io/umask-fs.js";
 import { type AstNode, parse } from "./parser/index.js";
 import { CommandTracker } from "./tracker.js";
 import type { ShellResult } from "./types.js";
@@ -79,6 +80,7 @@ export interface ShellTtyOptions {
 export class Shell {
 	private env: Environment;
 	private vfs: VirtualFileSystem;
+	private fs: IFileSystem;
 	private registry: CommandRegistry;
 	private executor: Executor;
 	private tty: CommandTerminalContext;
@@ -122,6 +124,7 @@ export class Shell {
 			files: opts.fs,
 			cwd: this.env.cwd,
 		});
+		this.fs = new UmaskFileSystem(this.vfs, () => parseUmaskEnv(this.env.get("UMASK")));
 
 		// Handle WASM runtime initialization
 		if (opts.wasm) {
@@ -168,7 +171,7 @@ export class Shell {
 		}
 
 		this.parseFn ??= opts.parser ?? parse;
-		this.executor = new Executor(this.env, this.vfs, this.registry, this.tty);
+		this.executor = new Executor(this.env, this.fs, this.registry, this.tty);
 		this.hookRegistry = new HookRegistry();
 
 		this.interactive = opts.interactive ?? false;
@@ -243,7 +246,7 @@ export class Shell {
 
 			if (this.wasmExecuteFn) {
 				// Use WASM executor with bridge
-				const bridge = new ShellBridge(this.env, this.vfs, this.registry, this.tty);
+				const bridge = new ShellBridge(this.env, this.fs, this.registry, this.tty);
 				const wasmResult = await this.wasmExecuteFn(ast, bridge, "");
 				result = wasmResult as ShellResult;
 			} else {
@@ -332,8 +335,8 @@ export class Shell {
 	private async sourceIfExists(path: string): Promise<boolean> {
 		let content: string;
 		try {
-			if (!this.vfs.exists(path)) return false;
-			content = this.vfs.readFile(path);
+			if (!this.fs.exists(path)) return false;
+			content = this.fs.readFile(path);
 		} catch {
 			return false;
 		}
@@ -403,7 +406,7 @@ export class Shell {
 	// --- Accessors ---
 
 	get filesystem(): IFileSystem {
-		return this.vfs;
+		return this.fs;
 	}
 
 	get environment(): Environment {
