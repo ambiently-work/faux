@@ -77,6 +77,17 @@ export interface ShellTtyOptions {
 	name?: string;
 }
 
+export interface ShellRunOptions {
+	/**
+	 * Cancel the in-flight command. Aborting causes loop hot spots and
+	 * cancellation-aware builtins (`sleep`, `yes`) to bail out with exit 130 —
+	 * the same code bash uses for SIGINT. Any registered `INT` trap fires once
+	 * before the unwind. Long-running text-processing builtins that don't
+	 * consult the signal still complete normally; cancellation is cooperative.
+	 */
+	signal?: AbortSignal;
+}
+
 export class Shell {
 	private env: Environment;
 	private vfs: VirtualFileSystem;
@@ -203,7 +214,7 @@ export class Shell {
 
 	// --- Execution ---
 
-	async run(command: string): Promise<ShellResult> {
+	async run(command: string, options?: ShellRunOptions): Promise<ShellResult> {
 		if (this.wasmReady) {
 			await this.wasmReady;
 			this.wasmReady = null;
@@ -245,13 +256,18 @@ export class Shell {
 			const ast = this.parseFn(effectiveCommand);
 
 			if (this.wasmExecuteFn) {
-				// Use WASM executor with bridge
-				const bridge = new ShellBridge(this.env, this.fs, this.registry, this.tty);
-				const wasmResult = await this.wasmExecuteFn(ast, bridge, "");
-				result = wasmResult as ShellResult;
+				// Use WASM executor with bridge — abort signals are not yet wired
+				// through the WASM path, so honor them here at the boundary.
+				if (options?.signal?.aborted) {
+					result = { stdout: "", stderr: "", exitCode: 130 };
+				} else {
+					const bridge = new ShellBridge(this.env, this.fs, this.registry, this.tty);
+					const wasmResult = await this.wasmExecuteFn(ast, bridge, "");
+					result = wasmResult as ShellResult;
+				}
 			} else {
 				// Use TS executor
-				result = await this.executor.execute(ast);
+				result = await this.executor.execute(ast, "", { signal: options?.signal });
 			}
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);

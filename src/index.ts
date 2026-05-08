@@ -49,7 +49,7 @@ export { HookRegistry } from "./hooks.js";
 export { WritableBuffer } from "./io/stream.js";
 export type { AstNode, Redirect, Word, WordPart } from "./parser/index.js";
 export { parse, useWasmParser } from "./parser/index.js";
-export { Shell, type ShellOptions } from "./shell.js";
+export { Shell, type ShellOptions, type ShellRunOptions } from "./shell.js";
 export {
 	createDefaultTools,
 	type DefaultToolsOptions,
