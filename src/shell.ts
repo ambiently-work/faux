@@ -41,6 +41,23 @@ export interface ShellOptions {
 	/** Terminal/TTY metadata exposed to builtins (default: non-interactive 80x24 dumb terminal) */
 	tty?: ShellTtyOptions;
 	/**
+	 * Mark this shell as interactive. When true, the shell sources `/etc/bash.bashrc`
+	 * and `~/.bashrc` (or the login files when `login` is also set) before the first
+	 * command runs. Default: false.
+	 */
+	interactive?: boolean;
+	/**
+	 * Mark this shell as a login shell. Implies and requires `interactive`. When true,
+	 * the shell sources `/etc/profile` followed by the first found of `~/.bash_profile`,
+	 * `~/.bash_login`, or `~/.profile` before the first command runs. Default: false.
+	 */
+	login?: boolean;
+	/**
+	 * Skip rc/profile/`BASH_ENV` loading entirely. Use for hermetic tests or when the
+	 * embedder wants full control over startup. Default: false.
+	 */
+	skipStartupFiles?: boolean;
+	/**
 	 * Enable WASM-accelerated runtime.
 	 * - `true`: dynamically loads the bundled WASM runtime from this package
 	 * - A `WasmRuntimeModule` or partial: uses the provided module directly
@@ -66,6 +83,11 @@ export class Shell {
 	private parseFn!: (input: string) => AstNode;
 	private hookRegistry: HookRegistry;
 	private commandTracker: CommandTracker | null;
+
+	private interactive: boolean;
+	private login: boolean;
+	private skipStartupFiles: boolean;
+	private startupFilesLoaded: boolean;
 
 	private wasmReady: Promise<void> | null = null;
 	private wasmExecuteFn:
@@ -147,6 +169,11 @@ export class Shell {
 		this.executor = new Executor(this.env, this.vfs, this.registry, this.tty);
 		this.hookRegistry = new HookRegistry();
 		this.commandTracker = opts.tracking ? new CommandTracker(opts.maxHistory) : null;
+
+		this.interactive = opts.interactive ?? false;
+		this.login = opts.login ?? false;
+		this.skipStartupFiles = opts.skipStartupFiles ?? false;
+		this.startupFilesLoaded = false;
 	}
 
 	// --- Execution ---
@@ -155,6 +182,13 @@ export class Shell {
 		if (this.wasmReady) {
 			await this.wasmReady;
 			this.wasmReady = null;
+		}
+
+		if (!this.startupFilesLoaded) {
+			this.startupFilesLoaded = true;
+			if (!this.skipStartupFiles) {
+				await this.runStartupFiles();
+			}
 		}
 
 		if (command.trim() === "") {
@@ -217,6 +251,68 @@ export class Shell {
 		}
 
 		return result;
+	}
+
+	/**
+	 * Source the appropriate startup files based on `interactive` / `login` mode.
+	 * Idempotent — only runs once. Called automatically before the first `run()`,
+	 * but can be invoked eagerly so embedders can ensure aliases / PATH / functions
+	 * are visible before they kick off any work.
+	 */
+	async init(): Promise<void> {
+		if (this.wasmReady) {
+			await this.wasmReady;
+			this.wasmReady = null;
+		}
+		if (this.startupFilesLoaded) return;
+		this.startupFilesLoaded = true;
+		if (!this.skipStartupFiles) {
+			await this.runStartupFiles();
+		}
+	}
+
+	private async runStartupFiles(): Promise<void> {
+		const home = this.env.get("HOME") ?? "/root";
+
+		if (this.interactive) {
+			if (this.login) {
+				await this.sourceIfExists("/etc/profile");
+				for (const candidate of [
+					`${home}/.bash_profile`,
+					`${home}/.bash_login`,
+					`${home}/.profile`,
+				]) {
+					if (await this.sourceIfExists(candidate)) break;
+				}
+			} else {
+				await this.sourceIfExists("/etc/bash.bashrc");
+				await this.sourceIfExists(`${home}/.bashrc`);
+			}
+		} else {
+			const bashEnv = this.env.get("BASH_ENV");
+			if (bashEnv && bashEnv.length > 0) {
+				const expanded = expandHome(bashEnv, home);
+				await this.sourceIfExists(expanded);
+			}
+		}
+	}
+
+	private async sourceIfExists(path: string): Promise<boolean> {
+		let content: string;
+		try {
+			if (!this.vfs.exists(path)) return false;
+			content = this.vfs.readFile(path);
+		} catch {
+			return false;
+		}
+		try {
+			const ast = this.parseFn(content);
+			await this.executor.execute(ast);
+		} catch {
+			// Don't abort startup on a malformed rc file — same shape as bash, which
+			// prints the error and moves on.
+		}
+		return true;
 	}
 
 	// --- Hooks ---
@@ -330,4 +426,10 @@ function createTerminalContext(
 function parsePositiveInt(value: string | number | undefined, fallback: number): number {
 	const parsed = typeof value === "number" ? value : Number.parseInt(value ?? "", 10);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function expandHome(path: string, home: string): string {
+	if (path === "~") return home;
+	if (path.startsWith("~/")) return `${home}${path.slice(1)}`;
+	return path;
 }

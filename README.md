@@ -27,6 +27,29 @@ const result = await shell.run("cat /home/luca/hello.txt | wc -w");
 console.log(result.stdout); // "2\n"
 ```
 
+### Startup files
+
+A shell can be told it's interactive — and optionally a login shell — so it sources the same rc/profile files as bash:
+
+| Mode | Files sourced (in order, first-found for the home set) |
+| --- | --- |
+| `interactive: true` (non-login) | `/etc/bash.bashrc`, `~/.bashrc` |
+| `interactive: true, login: true` | `/etc/profile`, then one of `~/.bash_profile`, `~/.bash_login`, `~/.profile` |
+| Non-interactive (default) | `$BASH_ENV` if set (with `~` expansion) |
+
+```ts
+const shell = new Shell({
+  user: "luca",
+  interactive: true,
+  fs: {
+    "/home/luca/.bashrc": "alias ll='ls -l'\nexport EDITOR=vim\n",
+  },
+});
+await shell.run("ll");      // alias from .bashrc
+```
+
+Files run lazily before the first `run()`, or eagerly via `await shell.init()`. Pass `skipStartupFiles: true` to bypass everything (useful in tests).
+
 ## Development
 
 This is a Bun workspaces monorepo.
