@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0](https://github.com/ambiently-work/faux/compare/faux-v0.1.0...faux-v0.2.0) (2026-05-08)
+
+
+### Features
+
+* add mount/umount builtins wrapping the VFS mount API ([#25](https://github.com/ambiently-work/faux/issues/25)) ([#116](https://github.com/ambiently-work/faux/issues/116)) ([1ddc563](https://github.com/ambiently-work/faux/commit/1ddc563f6e0d48f258f2cfa31951c9fb6b87ee3b))
+* enforce set -e, set -u, set -o pipefail ([#7](https://github.com/ambiently-work/faux/issues/7)) ([#107](https://github.com/ambiently-work/faux/issues/107)) ([36d2c9a](https://github.com/ambiently-work/faux/commit/36d2c9a2fe529845eb68ed2b0bb94d466a21aef4))
+* enforce UMASK on newly-created files and directories ([#28](https://github.com/ambiently-work/faux/issues/28)) ([#106](https://github.com/ambiently-work/faux/issues/106)) ([5a4bc24](https://github.com/ambiently-work/faux/commit/5a4bc24c5ce4107bcaa1bfcb91497b624b4457b1))
+* execute VFS scripts via shebang, chmod +x, and PATH lookup ([#14](https://github.com/ambiently-work/faux/issues/14)) ([#108](https://github.com/ambiently-work/faux/issues/108)) ([10ba4ea](https://github.com/ambiently-work/faux/commit/10ba4eab85f32b76b7f788c7061f910bfeb2b33a))
+* fire EXIT / ERR / DEBUG / RETURN traps from the executor ([#9](https://github.com/ambiently-work/faux/issues/9)) ([#110](https://github.com/ambiently-work/faux/issues/110)) ([0afcdc1](https://github.com/ambiently-work/faux/commit/0afcdc1b19b2004366984df5743603f9ee21a33c))
+* history builtin with $HISTFILE persistence and !! expansion ([#26](https://github.com/ambiently-work/faux/issues/26)) ([#114](https://github.com/ambiently-work/faux/issues/114)) ([12d0809](https://github.com/ambiently-work/faux/commit/12d0809ca9745e8e936d87c48f9c0f52e86bf9ff))
+* implement process substitution &lt;(cmd) ([#11](https://github.com/ambiently-work/faux/issues/11)) ([#111](https://github.com/ambiently-work/faux/issues/111)) ([e375d2c](https://github.com/ambiently-work/faux/commit/e375d2c0daa47671eb0879628253025982d3838a))
+* load shell startup files based on interactive/login mode ([#104](https://github.com/ambiently-work/faux/issues/104)) ([a1aadbe](https://github.com/ambiently-work/faux/commit/a1aadbea05ebf91777db2844147e5e15826cfa1b))
+* split unquoted expansions on IFS ([#12](https://github.com/ambiently-work/faux/issues/12)) ([#109](https://github.com/ambiently-work/faux/issues/109)) ([8adec7d](https://github.com/ambiently-work/faux/commit/8adec7d8ee08c305eb691896560480ea24b63b40))
+* thread AbortSignal through Shell.run for SIGINT-style cancellation ([#31](https://github.com/ambiently-work/faux/issues/31)) ([#115](https://github.com/ambiently-work/faux/issues/115)) ([c4812b3](https://github.com/ambiently-work/faux/commit/c4812b3ccf1a328f0ade52f75018e9e477c20232))
+
+
+### Bug Fixes
+
+* build dist on github install so consumers don't see raw .ts errors ([#103](https://github.com/ambiently-work/faux/issues/103)) ([ac19ad2](https://github.com/ambiently-work/faux/commit/ac19ad2905a6c7682dc67671702892e4810ef02e))
+
 ## [0.1.0](https://github.com/ambiently-work/faux/compare/faux-v0.0.1...faux-v0.1.0) (2026-05-07)
 
 
