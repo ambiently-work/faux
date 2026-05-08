@@ -46,6 +46,18 @@ export class Executor {
 	private registry: CommandRegistry;
 	private tty: CommandTerminalContext;
 	/**
+	 * Cancellation signal for the current `execute()` call. Plumbed into
+	 * `ExecutorContext` and `CommandContext` so loop hot spots and long-running
+	 * builtins can check it. Cleared back to `undefined` once `execute()`
+	 * returns so a stale aborted signal can't poison the next run.
+	 */
+	private signal: AbortSignal | undefined;
+	/**
+	 * One-shot guard so we only fire the INT trap once per abort, even if
+	 * several loops or pipeline stages observe the aborted signal in turn.
+	 */
+	private intTrapFired: boolean = false;
+	/**
 	 * Counts how deep we are inside a context that suppresses `set -e`. A
 	 * non-zero depth means we're evaluating a "test" position — `if`/`while`/
 	 * `until` condition, the non-final operand of `&&`/`||`, or the body of a
@@ -81,7 +93,15 @@ export class Executor {
 		this.tty = tty;
 	}
 
-	async execute(node: AstNode, stdin = ""): Promise<ShellResult> {
+	async execute(
+		node: AstNode,
+		stdin = "",
+		options?: { signal?: AbortSignal },
+	): Promise<ShellResult> {
+		this.signal = options?.signal;
+		this.intTrapFired = false;
+		this.signalYieldCounter = 0;
+		this._execCtx = null;
 		try {
 			const result = await this.executeNode(node, stdin);
 			this.env.lastExitCode = result.exitCode;
@@ -117,7 +137,48 @@ export class Executor {
 				return { stdout: "", stderr: `${e.message}\n`, exitCode: 1 };
 			}
 			throw e;
+		} finally {
+			this.signal = undefined;
+			this.intTrapFired = false;
 		}
+	}
+
+	/**
+	 * Counts iterations across all hot loops to spread out a forced
+	 * macrotask yield — pure microtask `await` chains starve `setTimeout`
+	 * on every JS runtime, so an infinitely-tight loop would never observe
+	 * an abort delivered via a timer. Yielding every N iterations keeps the
+	 * loop fast while still letting timers fire promptly enough to cancel it.
+	 */
+	private signalYieldCounter: number = 0;
+
+	/**
+	 * Check the current cancellation signal. If it has been aborted, fire the
+	 * INT trap once (so `trap 'echo int' INT` runs) and throw `ShellExit(130)`
+	 * to unwind the stack at the next loop boundary or pipeline stage. Safe to
+	 * call repeatedly — only the first call per abort fires the trap. When the
+	 * signal is plumbed in (regardless of state), this also periodically yields
+	 * a macrotask so timer-driven aborts can actually be observed by tight
+	 * pure-async loops.
+	 */
+	private async checkSignal(): Promise<void> {
+		// Inside a trap handler, the abort that triggered us has already been
+		// observed — checking again would re-throw before the handler could
+		// finish printing its message.
+		if (this.inTrapHandler) return;
+		if (this.signal !== undefined) {
+			this.signalYieldCounter++;
+			if (this.signalYieldCounter % 64 === 0) {
+				await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			}
+		}
+		if (!this.signal?.aborted) return;
+		let intOutput: { stdout: string; stderr: string } | null = null;
+		if (!this.intTrapFired) {
+			this.intTrapFired = true;
+			intOutput = await this.fireTrap("INT").catch(() => null);
+		}
+		throw new ShellExit(130, intOutput?.stdout ?? "", intOutput?.stderr ?? "");
 	}
 
 	/**
@@ -228,6 +289,10 @@ export class Executor {
 
 	private getExecCtx(): ExecutorContext {
 		if (!this._execCtx) {
+			// `self` keeps the getter picking up the live per-run signal — the
+			// context object is reused across nested `executeNode` calls but the
+			// signal only exists for the duration of an outer `execute()`.
+			const self = this;
 			this._execCtx = {
 				env: this.env,
 				fs: this.fs,
@@ -239,6 +304,10 @@ export class Executor {
 				},
 				executeNode: (node: AstNode, stdin: string) => this.executeNode(node, stdin),
 				fireTrap: (name: string) => this.fireTrap(name),
+				get signal() {
+					return self.signal;
+				},
+				checkSignal: () => self.checkSignal(),
 			};
 		}
 		return this._execCtx;
@@ -279,6 +348,11 @@ export class Executor {
 
 	private async executeCommandNodeInner(node: CommandNode, stdin: string): Promise<ShellResult> {
 		const ctx = this.getExecCtx();
+
+		// Pick up an abort that fired before this command started — bail before
+		// even running the DEBUG trap so canceled commands have no observable
+		// side effects.
+		await this.checkSignal();
 
 		// DEBUG trap fires before each simple command (skipping when we're already
 		// in a trap handler to avoid loops).
@@ -391,6 +465,23 @@ export class Executor {
 			outputRedirects,
 			ctx,
 		);
+
+		// If the command was canceled mid-flight (e.g. `sleep` returning 130
+		// after observing the abort), fire the INT trap and unwind here rather
+		// than letting the canceled exit code leak past the abort boundary.
+		// Skip while running a trap handler so the handler can finish.
+		if (this.signal?.aborted && !this.inTrapHandler) {
+			let intOutput: { stdout: string; stderr: string } | null = null;
+			if (!this.intTrapFired) {
+				this.intTrapFired = true;
+				intOutput = await this.fireTrap("INT").catch(() => null);
+			}
+			throw new ShellExit(
+				130,
+				cmdResult.stdout + (intOutput?.stdout ?? ""),
+				cmdResult.stderr + (intOutput?.stderr ?? ""),
+			);
+		}
 
 		// Restore temp vars
 		for (const { name, value } of savedVars) {
@@ -582,6 +673,7 @@ export class Executor {
 		const stderrParts: string[] = [];
 
 		for (const word of words) {
+			await this.checkSignal();
 			this.env.set(node.variable, word);
 			try {
 				const result = await this.executeNode(node.body, stdin);
@@ -624,6 +716,7 @@ export class Executor {
 		const maxIterations = 100000;
 
 		while (iterations < maxIterations) {
+			await this.checkSignal();
 			// `while` condition is exempt from errexit.
 			const condResult = await this.withErrexitSuppressed(() =>
 				this.executeNode(node.condition, stdin),
@@ -676,6 +769,7 @@ export class Executor {
 		const maxIterations = 100000;
 
 		while (iterations < maxIterations) {
+			await this.checkSignal();
 			// `until` condition is exempt from errexit.
 			const condResult = await this.withErrexitSuppressed(() =>
 				this.executeNode(node.condition, stdin),

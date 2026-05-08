@@ -25,6 +25,13 @@ export interface CommandContext {
 	resolve(path: string): string;
 	/** Run a sub-command (for source, eval, etc.) */
 	subExec(command: string): Promise<ShellSubExecResult>;
+	/**
+	 * Cancellation signal forwarded from `Shell#run({ signal })`. Long-running
+	 * builtins (`sleep`, `yes`, large `cat`, network I/O) should consult this
+	 * between iterations and bail with exit 130 once it is aborted. May be
+	 * undefined when no signal was supplied — treat that as never aborted.
+	 */
+	signal?: AbortSignal;
 }
 
 export interface ShellSubExecResult {

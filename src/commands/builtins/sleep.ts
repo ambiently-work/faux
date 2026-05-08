@@ -35,10 +35,21 @@ export const sleep = command("sleep")
 		}
 
 		const ms = Math.floor(totalSeconds * 1000);
-		await new Promise<void>((resolve) => {
-			setTimeout(resolve, ms);
+		const signal = ctx.signal;
+		if (signal?.aborted) return 130;
+
+		const aborted = await new Promise<boolean>((resolve) => {
+			const timer = setTimeout(() => {
+				signal?.removeEventListener("abort", onAbort);
+				resolve(false);
+			}, ms);
+			const onAbort = (): void => {
+				clearTimeout(timer);
+				resolve(true);
+			};
+			signal?.addEventListener("abort", onAbort, { once: true });
 		});
 
-		return 0;
+		return aborted ? 130 : 0;
 	})
 	.toHandler();

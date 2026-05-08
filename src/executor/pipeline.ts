@@ -19,6 +19,19 @@ export interface ExecutorContext {
 	 * no handler is registered. Used by the function-call path to fire RETURN.
 	 */
 	fireTrap?: (name: string) => Promise<{ stdout: string; stderr: string } | null>;
+	/**
+	 * Cancellation signal threaded from `Shell#run({ signal })`. Loop hot spots
+	 * (`for`, `while`, `until`, between pipeline stages) check it between
+	 * iterations and abort with exit 130. Builtins receive the same signal via
+	 * `CommandContext.signal`.
+	 */
+	signal?: AbortSignal;
+	/**
+	 * Throws `ShellExit(130)` if `signal` has been aborted, after firing the
+	 * `INT` trap once per abort. Pipeline stages call this between commands so
+	 * Ctrl-C unwinds at the next stage boundary.
+	 */
+	checkSignal?: () => Promise<void>;
 }
 
 export async function executePipeline(
@@ -33,6 +46,11 @@ export async function executePipeline(
 	const baseIsatty = { ...ctx.tty.isatty };
 
 	for (let i = 0; i < commands.length; i++) {
+		if (ctx.checkSignal) {
+			await ctx.checkSignal();
+		} else if (ctx.signal?.aborted) {
+			throw new ShellExit(130, lastResult.stdout, lastResult.stderr);
+		}
 		ctx.tty.isatty.stdin = i === 0 ? baseIsatty.stdin : false;
 		ctx.tty.isatty.stdout = i === commands.length - 1 ? baseIsatty.stdout : false;
 		ctx.tty.isatty.stderr = baseIsatty.stderr;
@@ -244,6 +262,7 @@ export async function executeCommand(
 			const ast = parse(cmd);
 			return ctx.executeNode(ast, "");
 		},
+		signal: ctx.signal,
 	};
 
 	try {

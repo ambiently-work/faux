@@ -146,8 +146,19 @@ async function main() {
 	process.on("exit", () => {
 		void persistHistoryToDisk();
 	});
+
+	// Track the in-flight command's controller so SIGINT can interrupt it
+	// without killing the REPL itself. When idle (no command running),
+	// treat Ctrl-C as "discard the half-typed line" — same as bash.
+	let runningController: AbortController | null = null;
 	process.on("SIGINT", () => {
-		void persistHistoryToDisk().then(() => process.exit(130));
+		if (runningController) {
+			runningController.abort();
+			return;
+		}
+		writer.write("\n");
+		writer.write(buildPrompt());
+		writer.flush();
 	});
 
 	// Print MOTD
@@ -228,7 +239,13 @@ async function main() {
 			}
 
 			const startTime = performance.now();
-			const result = await shell.run(input);
+			runningController = new AbortController();
+			let result: Awaited<ReturnType<typeof shell.run>>;
+			try {
+				result = await shell.run(input, { signal: runningController.signal });
+			} finally {
+				runningController = null;
+			}
 			const elapsed = performance.now() - startTime;
 
 			if (result.stdout) {
