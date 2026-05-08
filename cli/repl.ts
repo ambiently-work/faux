@@ -20,6 +20,7 @@ const shell = new Shell({
 		TERM: "xterm-256color",
 		PS1: "\\u@\\h:\\w\\$ ",
 	},
+	interactive: true,
 	tty: {
 		stdin: Boolean(process.stdin.isTTY),
 		stdout: Boolean(process.stdout.isTTY),
