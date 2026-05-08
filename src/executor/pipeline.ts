@@ -63,6 +63,121 @@ export async function executePipeline(
 	return lastResult;
 }
 
+const SHELL_INTERPRETERS = new Set(["sh", "bash", "dash", "ash", "ksh", "zsh"]);
+
+/**
+ * Resolve `name` to a script path either via direct path resolution (when it
+ * contains `/`) or by walking `$PATH`. Returns `null` if no candidate matches.
+ */
+function resolveScriptPath(name: string, ctx: ExecutorContext): string | null {
+	const cwd = ctx.env.cwd;
+	const resolveAgainstCwd = (p: string): string => {
+		if (p.startsWith("/")) return p;
+		return cwd === "/" ? `/${p}` : `${cwd}/${p}`;
+	};
+
+	if (name.includes("/")) {
+		const candidate = resolveAgainstCwd(name);
+		return ctx.fs.exists(candidate) ? candidate : null;
+	}
+
+	const pathStr = ctx.env.get("PATH") ?? "";
+	for (const dir of pathStr.split(":")) {
+		if (!dir) continue;
+		const candidate = dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
+		try {
+			if (ctx.fs.exists(candidate)) return candidate;
+		} catch {
+			// Some dirs in PATH may not exist — skip.
+		}
+	}
+	return null;
+}
+
+/**
+ * Try to load `name` from the VFS as an executable script. Returns the result
+ * of executing it, or `null` if no candidate could be resolved (so the caller
+ * falls through to the standard `command not found` error).
+ *
+ * Honors:
+ *   - The execute bit on the file (`mode & 0o111`); rejects with exit 126 if
+ *     the file exists but isn't executable.
+ *   - `#!interpreter` shebangs for the known POSIX shells. Anything else
+ *     surfaces as `bad interpreter: ...: not found` with exit 126.
+ *   - Files without a shebang are parsed and run as shell input (matching bash).
+ */
+async function tryExecuteScript(
+	name: string,
+	args: string[],
+	stdin: string,
+	ctx: ExecutorContext,
+): Promise<ShellResult | null> {
+	const path = resolveScriptPath(name, ctx);
+	if (!path) return null;
+
+	let mode = 0;
+	try {
+		mode = ctx.fs.stat(path).mode;
+	} catch {
+		return null;
+	}
+
+	if ((mode & 0o111) === 0) {
+		return {
+			stdout: "",
+			stderr: `${name}: Permission denied\n`,
+			exitCode: 126,
+		};
+	}
+
+	let content: string;
+	try {
+		content = ctx.fs.readFile(path);
+	} catch {
+		return null;
+	}
+
+	let body = content;
+	if (content.startsWith("#!")) {
+		const newlineIdx = content.indexOf("\n");
+		const shebang = newlineIdx === -1 ? content : content.slice(0, newlineIdx);
+		body = newlineIdx === -1 ? "" : content.slice(newlineIdx + 1);
+
+		const interpreterArgs = shebang.slice(2).trim().split(/\s+/);
+		// Shebangs commonly use `/usr/bin/env <interp>`; peel that wrapper off.
+		let interpName: string | undefined;
+		const first = interpreterArgs[0];
+		if (first && (first === "/usr/bin/env" || first.endsWith("/env"))) {
+			interpName = interpreterArgs[1];
+		} else if (first) {
+			interpName = first.includes("/") ? first.split("/").pop() : first;
+		}
+
+		if (!interpName || !SHELL_INTERPRETERS.has(interpName)) {
+			return {
+				stdout: "",
+				stderr: `${name}: bad interpreter: ${interpName ?? shebang}: not found\n`,
+				exitCode: 126,
+			};
+		}
+	}
+
+	// Run the body with the script's positional args swapped in. The argument
+	// representing the script itself is conventionally `$0`; we set positional
+	// args 1..N from `args`.
+	const oldArgs = ctx.env.positionalArgs;
+	const oldShellName = ctx.env.shellName;
+	ctx.env.positionalArgs = args;
+	ctx.env.shellName = name;
+	try {
+		const ast = parse(body);
+		return await ctx.executeNode(ast, stdin);
+	} finally {
+		ctx.env.positionalArgs = oldArgs;
+		ctx.env.shellName = oldShellName;
+	}
+}
+
 export async function executeCommand(
 	name: string,
 	args: string[],
@@ -86,6 +201,10 @@ export async function executeCommand(
 				ctx.env.positionalArgs = oldArgs;
 			}
 		}
+
+		// Last resort: try to run a VFS-resident executable script.
+		const scriptResult = await tryExecuteScript(name, args, stdin, ctx);
+		if (scriptResult) return scriptResult;
 
 		stderr.writeln(`${name}: command not found`);
 		return { stdout: "", stderr: stderr.toString(), exitCode: 127 };

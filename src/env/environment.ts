@@ -134,6 +134,14 @@ export class Environment {
 		this._positionalArgs = args;
 	}
 
+	get shellName(): string {
+		return this._shellName;
+	}
+
+	set shellName(value: string) {
+		this._shellName = value;
+	}
+
 	setAlias(name: string, value: string): void {
 		this._aliases.set(name, value);
 	}
