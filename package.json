@@ -70,16 +70,16 @@
 	},
 	"dependencies": {
 		"@ambiently-work/mirage": "github:ambiently-work/mirage#82eed44375ba20c281ee93c6584c4549f3161796",
-		"zod": "^4.3.6"
+		"zod": "4.4.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.0",
-		"@biomejs/js-api": "^4.0.0",
-		"@biomejs/wasm-nodejs": "^2.4.10",
-		"quickjs-emscripten": "^0.32.0",
-		"tree-sitter-wasms": "^0.1.13",
-		"typescript": "^5.9.2",
-		"web-tree-sitter": "0.22"
+		"@biomejs/biome": "2.4.15",
+		"@biomejs/js-api": "4.0.0",
+		"@biomejs/wasm-nodejs": "2.4.15",
+		"quickjs-emscripten": "0.32.0",
+		"tree-sitter-wasms": "0.1.13",
+		"typescript": "5.9.3",
+		"web-tree-sitter": "0.22.6"
 	},
 	"workspaces": [
 		"packages/docs"
