@@ -69,7 +69,7 @@
 		"prepublishOnly": "bun run build"
 	},
 	"dependencies": {
-		"@ambiently-work/mirage": "github:ambiently-work/mirage#82eed44375ba20c281ee93c6584c4549f3161796",
+		"@ambiently-work/mirage": "github:ambiently-work/mirage#ceb89bac9cf8f10a8c19b4581c27ca24783b705f",
 		"zod": "4.4.3"
 	},
 	"devDependencies": {
