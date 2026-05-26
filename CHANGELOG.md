@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/ambiently-work/faux/compare/faux-v0.2.0...faux-v0.3.0) (2026-05-26)
+
+
+### Bug Fixes
+
+* **deps:** pin dependencies ([#118](https://github.com/ambiently-work/faux/issues/118)) ([7dd0683](https://github.com/ambiently-work/faux/commit/7dd0683b2ef7896d6328ddc2c59bfc33423b80f4))
+* **deps:** update @ambiently-work/mirage digest to ceb89ba ([#121](https://github.com/ambiently-work/faux/issues/121)) ([d637c8a](https://github.com/ambiently-work/faux/commit/d637c8ab0348932e4d7bd006206eee838e6de063))
+* **deps:** update dependency astro to v6.3.3 ([#123](https://github.com/ambiently-work/faux/issues/123)) ([b78b977](https://github.com/ambiently-work/faux/commit/b78b97701b238caa9c8f045a86f2d9cb5f60ac9f))
+
 ## [0.2.0](https://github.com/ambiently-work/faux/compare/faux-v0.1.0...faux-v0.2.0) (2026-05-08)
 
 
